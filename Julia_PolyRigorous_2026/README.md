@@ -68,9 +68,9 @@ poly = species("polystyrene")
 solv = species("toluene")
 N = degree_of_polymerization(poly, solv)
 
-chi = chi_from_solubility(solv.Vm, solv.delta, poly.delta, 298.15)
+χ = chi_from_solubility(solv.Vm, solv.δ, poly.δ, 298.15)
 crit = critical_point(N)
-@show chi, crit
+@show χ, crit
 ```
 
 ### Running the Pluto notebook
@@ -85,6 +85,24 @@ Pluto.run(notebook = "notebooks/ThermoExplorer.jl")
 The notebook activates this repository's own environment (`Pkg.activate`
 pointed at the repo root) rather than Pluto's own per-notebook package
 manager, so it picks up whatever you've already `Pkg.add`ed above.
+
+## Naming convention
+
+Julia allows Unicode identifiers, and this package uses that on purpose:
+physical quantities are spelled the way they appear in the docstrings'
+math, not transliterated into ASCII. So the code reads `χ` (`\chi`), `φ₂`
+(`\varphi\_2`), `δ` (`\delta`), `ν` (`\nu`), and reduced Sanchez-Lacombe
+variables as `T̃`, `P̃`, `ρ̃` (a letter plus a combining tilde, `\tilde`),
+rather than `chi`, `phi2`, `delta`, `nu`, `T_tilde`. Rate constants follow
+the textbook's own subscript convention, `k_p`, `k_d`, `k_t`. Exported
+*function* names stay plain English (`chi_spinodal`, `critical_point`,
+`kinetic_chain_length`, ...) so the API stays easy to type, grep, and
+tab-complete without a LaTeX input method — only the parameters and local
+variables *inside* those functions (and the fields of the values they
+return, like `critical_point`'s `φ₂_c`/`χ_c`) use the symbols. In the
+Julia REPL or an editor with LaTeX tab-completion (VS Code, Pluto, the
+Julia REPL itself), typing `\chi<TAB>` produces `χ`, `\varphi<TAB>\_2<TAB>`
+produces `φ₂`, and `\tilde<TAB>` after a letter adds the combining tilde.
 
 ## Project layout
 

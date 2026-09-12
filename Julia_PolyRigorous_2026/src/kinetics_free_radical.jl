@@ -4,95 +4,94 @@ and the resulting molecular weight averages, under the standard
 quasi-steady-state approximation (QSSA) for the radical concentration.
 
 Convention follows Odian, *Principles of Polymerization*: initiator `I`,
-monomer `M`, initiator decomposition rate constant `kd`, initiator
+monomer `M`, initiator decomposition rate constant `k_d`, initiator
 efficiency `f` (fraction of primary radicals that successfully start a
-chain), propagation rate constant `kp`, termination rate constant
-`kt = ktc + ktd` (combination + disproportionation).
+chain), propagation rate constant `k_p`, termination rate constant
+`k_t = k_tc + k_td` (combination + disproportionation).
 """
 
 """
-    initiation_rate(f, kd, I)
+    initiation_rate(f, k_d, I)
 
-Rate of radical generation `Ri = 2 f kd [I]` (mol/(L·s), for concentrations
-in mol/L and `kd` in 1/s).
+Rate of radical generation `Ri = 2 f k_d [I]` (mol/(L·s), for concentrations
+in mol/L and `k_d` in 1/s).
 """
-initiation_rate(f, kd, I) = 2 * f * kd * I
-
-"""
-    radical_concentration(f, kd, I, kt)
-
-Steady-state radical concentration `[M.] = sqrt(f kd [I] / kt)`, obtained
-from the QSSA `Ri = Rt = 2 kt [M.]^2`.
-"""
-radical_concentration(f, kd, I, kt) = sqrt(f * kd * I / kt)
+initiation_rate(f, k_d, I) = 2 * f * k_d * I
 
 """
-    propagation_rate(kp, M, Mrad)
+    radical_concentration(f, k_d, I, k_t)
 
-Rate of monomer consumption by propagation, `Rp = kp [M] [M.]`.
+Steady-state radical concentration `[M.] = sqrt(f k_d [I] / k_t)`, obtained
+from the QSSA `Ri = Rt = 2 k_t [M.]^2`.
 """
-propagation_rate(kp, M, Mrad) = kp * M * Mrad
+radical_concentration(f, k_d, I, k_t) = sqrt(f * k_d * I / k_t)
 
 """
-    kinetic_chain_length(kp, M, f, kd, I, kt)
+    propagation_rate(k_p, M, Mrad)
 
-Kinetic chain length `nu = Rp / Ri = kp [M] / (2 sqrt(kt f kd [I]))`: the
+Rate of monomer consumption by propagation, `Rp = k_p [M] [M.]`.
+"""
+propagation_rate(k_p, M, Mrad) = k_p * M * Mrad
+
+"""
+    kinetic_chain_length(k_p, M, f, k_d, I, k_t)
+
+Kinetic chain length `ν = Rp / Ri = k_p [M] / (2 sqrt(k_t f k_d [I]))`: the
 average number of monomer units consumed per radical that initiates a
 chain.
 """
-kinetic_chain_length(kp, M, f, kd, I, kt) = kp * M / (2 * sqrt(kt * f * kd * I))
+kinetic_chain_length(k_p, M, f, k_d, I, k_t) = k_p * M / (2 * sqrt(k_t * f * k_d * I))
 
 """
-    Xn_combination(nu)
+    Xn_combination(ν)
 
 Number-average degree of polymerization when all termination is by
-combination: `Xn = 2 nu` (two kinetic chains join into one dead chain).
+combination: `Xn = 2 ν` (two kinetic chains join into one dead chain).
 """
-Xn_combination(nu) = 2 * nu
+Xn_combination(ν) = 2 * ν
 
 """
-    Xn_disproportionation(nu)
+    Xn_disproportionation(ν)
 
 Number-average degree of polymerization when all termination is by
-disproportionation: `Xn = nu` (each kinetic chain becomes its own dead
+disproportionation: `Xn = ν` (each kinetic chain becomes its own dead
 chain).
 """
-Xn_disproportionation(nu) = nu
+Xn_disproportionation(ν) = ν
 
 """
-    Xn_mixed(nu, delta)
+    Xn_mixed(ν, δ)
 
 Number-average degree of polymerization for termination split between
-disproportionation (fraction `delta`, `0 <= delta <= 1`) and combination
-(fraction `1 - delta`): `Xn = 2 nu / (1 + delta)`. Reduces to
-[`Xn_combination`](@ref) at `delta = 0` and [`Xn_disproportionation`](@ref)
-at `delta = 1`.
+disproportionation (fraction `δ`, `0 <= δ <= 1`) and combination (fraction
+`1 - δ`): `Xn = 2 ν / (1 + δ)`. Reduces to [`Xn_combination`](@ref) at
+`δ = 0` and [`Xn_disproportionation`](@ref) at `δ = 1`.
 """
-function Xn_mixed(nu, delta)
-    0 <= delta <= 1 || throw(ArgumentError("delta must be in [0, 1]"))
-    return 2 * nu / (1 + delta)
+function Xn_mixed(ν, δ)
+    0 <= δ <= 1 || throw(ArgumentError("δ must be in [0, 1]"))
+    return 2 * ν / (1 + δ)
 end
 
 """
-    monomer_concentration(t, kp, kd, kt, f, I0, M0)
+    monomer_concentration(t, k_p, k_d, k_t, f, I0, M0)
 
 Monomer concentration at time `t` in an isothermal batch reactor, from the
-closed-form solution of `d[M]/dt = -kp [M] [M.]` under QSSA with a slowly
-decaying initiator `[I](t) = I0 exp(-kd t)`:
+closed-form solution of `d[M]/dt = -k_p [M] [M.]` under QSSA with a slowly
+decaying initiator `[I](t) = I0 exp(-k_d t)`:
 
 ``\\ln\\frac{[M]_0}{[M](t)} = \\frac{2 k_p}{k_d}\\sqrt{f k_d [I]_0 / k_t}\\,\\bigl(1 - e^{-k_d t/2}\\bigr)``
 
 (Odian, *Principles of Polymerization*).
 """
-function monomer_concentration(t, kp, kd, kt, f, I0, M0)
-    ln_ratio = (2 * kp / kd) * sqrt(f * kd * I0 / kt) * (1 - exp(-kd * t / 2))
+function monomer_concentration(t, k_p, k_d, k_t, f, I0, M0)
+    ln_ratio = (2 * k_p / k_d) * sqrt(f * k_d * I0 / k_t) * (1 - exp(-k_d * t / 2))
     return M0 * exp(-ln_ratio)
 end
 
 """
-    conversion(t, kp, kd, kt, f, I0, M0)
+    conversion(t, k_p, k_d, k_t, f, I0, M0)
 
 Fractional monomer conversion `1 - [M](t)/[M]_0` at time `t`, from
 [`monomer_concentration`](@ref).
 """
-conversion(t, kp, kd, kt, f, I0, M0) = 1 - monomer_concentration(t, kp, kd, kt, f, I0, M0) / M0
+conversion(t, k_p, k_d, k_t, f, I0, M0) = 1 - monomer_concentration(t, k_p, k_d, k_t, f, I0, M0) / M0

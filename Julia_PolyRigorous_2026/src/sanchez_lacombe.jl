@@ -12,6 +12,9 @@ and the equation of state is
 ``\\tilde\\rho^2 + \\tilde P + \\tilde T\\left[\\ln(1-\\tilde\\rho) + \\left(1-\\dfrac1r\\right)\\tilde\\rho\\right] = 0``
 
 where `r` is the number of lattice sites per molecule ([`segment_number`](@ref)).
+The code below spells these reduced variables exactly as in the math,
+`T̃`, `P̃`, `ρ̃` (a base letter plus a combining tilde, which Julia accepts
+directly in identifiers).
 
 Scope note: this module covers *pure-component* PVT behavior only (reduced
 density, specific volume, thermal expansion, isothermal compressibility),
@@ -25,40 +28,40 @@ expression; see the README roadmap.
 using Roots: find_zero, Bisection
 
 """
-    sl_eos_residual(rho_tilde, T_tilde, P_tilde, r)
+    sl_eos_residual(ρ̃, T̃, P̃, r)
 
 Left-hand side of the Sanchez-Lacombe EOS; zero at the physical reduced
 density.
 """
-function sl_eos_residual(rho_tilde, T_tilde, P_tilde, r)
-    return rho_tilde^2 + P_tilde + T_tilde * (log1p(-rho_tilde) + (1 - 1 / r) * rho_tilde)
+function sl_eos_residual(ρ̃, T̃, P̃, r)
+    return ρ̃^2 + P̃ + T̃ * (log1p(-ρ̃) + (1 - 1 / r) * ρ̃)
 end
 
 """
-    reduced_density(T, P, sp::Species; rho_tilde_bracket=(1e-6, 1 - 1e-9), nscan=400)
+    reduced_density(T, P, sp::Species; ρ̃_bracket=(1e-6, 1 - 1e-9), nscan=400)
 
 Solve the Sanchez-Lacombe EOS for the liquid/melt-branch reduced density
-`rho_tilde = rho/rhostar` of species `sp` at temperature `T` (K) and
-pressure `P` (MPa).
+`ρ̃ = ρ/rhostar` of species `sp` at temperature `T` (K) and pressure `P`
+(MPa).
 
 Like other cubic-type equations of state (van der Waals, Peng-Robinson,
-...), the Sanchez-Lacombe EOS residual is not monotonic in `rho_tilde` over
-the whole `(0, 1)` range in general: besides the dense liquid/melt root
-(close to the close-packed limit `rhostar`), there can also be a
-low-density, vapor-like root. This package targets condensed polymer
-melts and polymer-solvent solutions, so we want the liquid branch
-specifically. To get it reliably (rather than risk a naive bisection over
-the full range latching onto the wrong root), we scan `rho_tilde` down from
-the high-density end and bisect within the *first* sign change encountered
-— i.e. the root nearest the close-packed limit.
+...), the Sanchez-Lacombe EOS residual is not monotonic in `ρ̃` over the
+whole `(0, 1)` range in general: besides the dense liquid/melt root (close
+to the close-packed limit `rhostar`), there can also be a low-density,
+vapor-like root. This package targets condensed polymer melts and
+polymer-solvent solutions, so we want the liquid branch specifically. To
+get it reliably (rather than risk a naive bisection over the full range
+latching onto the wrong root), we scan `ρ̃` down from the high-density end
+and bisect within the *first* sign change encountered — i.e. the root
+nearest the close-packed limit.
 """
-function reduced_density(T, P, sp::Species; rho_tilde_bracket=(1e-6, 1 - 1e-9), nscan=400)
+function reduced_density(T, P, sp::Species; ρ̃_bracket=(1e-6, 1 - 1e-9), nscan=400)
     r = segment_number(sp)
-    T_tilde = T / sp.Tstar
-    P_tilde = P / sp.Pstar
-    f(rho_tilde) = sl_eos_residual(rho_tilde, T_tilde, P_tilde, r)
+    T̃ = T / sp.Tstar
+    P̃ = P / sp.Pstar
+    f(ρ̃) = sl_eos_residual(ρ̃, T̃, P̃, r)
 
-    lo, hi = rho_tilde_bracket
+    lo, hi = ρ̃_bracket
     grid = range(hi, lo; length=nscan)  # scan from close-packed limit downward
     f_prev = f(grid[1])
     for i in 2:length(grid)
@@ -69,7 +72,7 @@ function reduced_density(T, P, sp::Species; rho_tilde_bracket=(1e-6, 1 - 1e-9), 
         f_prev = f_curr
     end
     throw(ErrorException(
-        "No liquid-branch root found for the EOS residual on rho_tilde in ($lo, $hi) at " *
+        "No liquid-branch root found for the EOS residual on ρ̃ in ($lo, $hi) at " *
         "T=$T K, P=$P MPa for $(sp.name); the state point may be outside this solver's " *
         "validity range."
     ))
@@ -93,8 +96,8 @@ specific_volume(T, P, sp::Species) = 1 / density(T, P, sp)
 """
     thermal_expansion_coefficient(T, P, sp::Species; dT=1e-2)
 
-Isobaric thermal expansion coefficient `alpha = (1/V) dV/dT` (1/K),
-by central finite difference on [`specific_volume`](@ref).
+Isobaric thermal expansion coefficient `α = (1/V) dV/dT` (1/K), by central
+finite difference on [`specific_volume`](@ref).
 """
 function thermal_expansion_coefficient(T, P, sp::Species; dT=1e-2)
     Vp = specific_volume(T + dT, P, sp)
@@ -106,9 +109,8 @@ end
 """
     isothermal_compressibility(T, P, sp::Species; dP=1e-3)
 
-Isothermal compressibility `kappa = -(1/V) dV/dP` (1/MPa),
-by central finite difference on [`specific_volume`](@ref). `dP` in MPa;
-requires `P > dP`.
+Isothermal compressibility `κ = -(1/V) dV/dP` (1/MPa), by central finite
+difference on [`specific_volume`](@ref). `dP` in MPa; requires `P > dP`.
 """
 function isothermal_compressibility(T, P, sp::Species; dP=1e-3)
     P > dP || throw(ArgumentError("P must exceed dP for a centered finite difference"))

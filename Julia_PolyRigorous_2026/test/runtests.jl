@@ -20,21 +20,21 @@ end
 
 @testset "flory-huggins: limits and known values" begin
     # Athermal, equal-size (N = 1) binary: ln(a1) reduces to ideal-solution
-    # (Raoult's-law-like) behavior ln(a1) = ln(phi1).
-    phi2 = 0.3
-    @test isapprox(PolyRigorous.ln_activity_solvent(phi2, 1.0, 0.0), log(1 - phi2); atol=1e-12)
+    # (Raoult's-law-like) behavior ln(a1) = ln(φ1).
+    φ₂ = 0.3
+    @test isapprox(PolyRigorous.ln_activity_solvent(φ₂, 1.0, 0.0), log(1 - φ₂); atol=1e-12)
 
-    # As N -> infinity at fixed phi2, chi (the (1-1/N) term saturates)
-    ln_a1_bigN = PolyRigorous.ln_activity_solvent(phi2, 1e8, 0.5)
-    ln_a1_inftyN = log(1 - phi2) + phi2 + 0.5 * phi2^2
+    # As N -> infinity at fixed φ₂, χ (the (1-1/N) term saturates)
+    ln_a1_bigN = PolyRigorous.ln_activity_solvent(φ₂, 1e8, 0.5)
+    ln_a1_inftyN = log(1 - φ₂) + φ₂ + 0.5 * φ₂^2
     @test isapprox(ln_a1_bigN, ln_a1_inftyN; atol=1e-6)
 
     # Symmetry check for N=1: solvent and polymer are the same size, so
-    # relabeling which species is "solvent" (phi2 <-> 1-phi2) should map
+    # relabeling which species is "solvent" (φ₂ <-> 1-φ₂) should map
     # ln_activity_solvent onto ln_activity_polymer.
     @test isapprox(
-        PolyRigorous.ln_activity_solvent(phi2, 1.0, 0.7),
-        PolyRigorous.ln_activity_polymer(1 - phi2, 1.0, 0.7);
+        PolyRigorous.ln_activity_solvent(φ₂, 1.0, 0.7),
+        PolyRigorous.ln_activity_polymer(1 - φ₂, 1.0, 0.7);
         atol=1e-12,
     )
 end
@@ -42,34 +42,34 @@ end
 @testset "flory-huggins: critical point and spinodal" begin
     N = 1.0
     crit = critical_point(N)
-    @test isapprox(crit.phi2c, 0.5; atol=1e-12)
-    @test isapprox(crit.chic, 2.0; atol=1e-12)
+    @test isapprox(crit.φ₂_c, 0.5; atol=1e-12)
+    @test isapprox(crit.χ_c, 2.0; atol=1e-12)
 
     N2 = 1000.0
     crit2 = critical_point(N2)
-    @test isapprox(crit2.phi2c, 1 / (1 + sqrt(N2)); atol=1e-12)
+    @test isapprox(crit2.φ₂_c, 1 / (1 + sqrt(N2)); atol=1e-12)
 
     # The spinodal touches the binodal exactly at the critical point:
-    # chi_spinodal(phi2c) == chic.
-    @test isapprox(chi_spinodal(crit2.phi2c, N2), crit2.chic; atol=1e-9)
+    # chi_spinodal(φ₂_c) == χ_c.
+    @test isapprox(chi_spinodal(crit2.φ₂_c, N2), crit2.χ_c; atol=1e-9)
 end
 
 @testset "phase equilibrium: binodal brackets the critical point" begin
     N = 50.0
     crit = critical_point(N)
-    chi = 1.05 * crit.chic
-    res = binodal_pair(N, chi)
+    χ = 1.05 * crit.χ_c
+    res = binodal_pair(N, χ)
     @test res.converged
-    @test res.phi2a < crit.phi2c < res.phi2b
+    @test res.φ₂a < crit.φ₂_c < res.φ₂b
 
     # Both branches should satisfy the equal-activity conditions to high
     # precision.
-    a1a = PolyRigorous.ln_activity_solvent(res.phi2a, N, chi)
-    a1b = PolyRigorous.ln_activity_solvent(res.phi2b, N, chi)
+    a1a = PolyRigorous.ln_activity_solvent(res.φ₂a, N, χ)
+    a1b = PolyRigorous.ln_activity_solvent(res.φ₂b, N, χ)
     @test isapprox(a1a, a1b; atol=1e-6)
 
-    a2a = PolyRigorous.ln_activity_polymer(res.phi2a, N, chi)
-    a2b = PolyRigorous.ln_activity_polymer(res.phi2b, N, chi)
+    a2a = PolyRigorous.ln_activity_polymer(res.φ₂a, N, χ)
+    a2b = PolyRigorous.ln_activity_polymer(res.φ₂b, N, χ)
     @test isapprox(a2a, a2b; atol=1e-6)
 end
 
@@ -78,80 +78,80 @@ end
     curve = binodal_curve(N; npoints=15)
     @test length(curve) > 5
     for pt in curve
-        @test pt.phi2a < pt.phi2b
+        @test pt.φ₂a < pt.φ₂b
     end
 
     spin = spinodal_curve(N; npoints=50)
     @test length(spin) == 50
-    @test all(pt.chi > 0 for pt in spin)
+    @test all(pt.χ > 0 for pt in spin)
 end
 
 @testset "sanchez-lacombe: EOS residual and PVT sanity" begin
     tol = species("toluene")
     T, P = 298.15, 0.1  # K, MPa (~1 atm)
 
-    rho_t = PolyRigorous.reduced_density(T, P, tol)
-    @test 0 < rho_t < 1
+    ρ̃ = PolyRigorous.reduced_density(T, P, tol)
+    @test 0 < ρ̃ < 1
 
     r = segment_number(tol)
-    resid = sl_eos_residual(rho_t, T / tol.Tstar, P / tol.Pstar, r)
+    resid = sl_eos_residual(ρ̃, T / tol.Tstar, P / tol.Pstar, r)
     @test isapprox(resid, 0.0; atol=1e-8)
 
-    rho = density(T, P, tol)
-    @test 0 < rho < tol.rhostar
+    ρ = density(T, P, tol)
+    @test 0 < ρ < tol.rhostar
 
     # Increasing pressure at fixed T should compress the fluid (density
     # goes up).
-    rho_hi = density(T, 50.0, tol)
-    @test rho_hi > rho
+    ρ_hi = density(T, 50.0, tol)
+    @test ρ_hi > ρ
 
     # Increasing temperature at fixed P should expand the fluid (density
     # goes down) below the polymer's/solvent's spinodal-like limits.
-    rho_hot = density(T + 20, P, tol)
-    @test rho_hot < rho
+    ρ_hot = density(T + 20, P, tol)
+    @test ρ_hot < ρ
 
-    alpha = thermal_expansion_coefficient(T, P, tol)
-    @test alpha > 0
+    α = thermal_expansion_coefficient(T, P, tol)
+    @test α > 0
 
-    kappa = isothermal_compressibility(T, P, tol)
-    @test kappa > 0
+    κ = isothermal_compressibility(T, P, tol)
+    @test κ > 0
 end
 
 @testset "free-radical kinetics" begin
-    kp, kd, kt, f = 1e3, 1e-5, 1e7, 0.5
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
     I0, M0 = 0.01, 5.0
 
     # No reaction has happened yet at t=0.
-    @test monomer_concentration(0.0, kp, kd, kt, f, I0, M0) == M0
-    @test conversion(0.0, kp, kd, kt, f, I0, M0) == 0.0
+    @test monomer_concentration(0.0, k_p, k_d, k_t, f, I0, M0) == M0
+    @test conversion(0.0, k_p, k_d, k_t, f, I0, M0) == 0.0
 
     # Conversion increases monotonically in t and never exceeds 1 -- and, in
     # this dead-end (finite initiator charge) batch model, never reaches it
     # either: once the initiator is exhausted, propagation stops with some
     # monomer left unreacted. The limiting conversion as t -> infinity has a
-    # known closed form (exp(-kd t/2) -> 0 in the conversion formula).
+    # known closed form (exp(-k_d t/2) -> 0 in the conversion formula).
     ts = [0.0, 100.0, 1e4, 1e6, 1e9]
-    convs = [conversion(t, kp, kd, kt, f, I0, M0) for t in ts]
+    convs = [conversion(t, k_p, k_d, k_t, f, I0, M0) for t in ts]
     @test issorted(convs)
     @test all(0 .<= convs .< 1)
-    conv_limit = 1 - exp(-(2 * kp / kd) * sqrt(f * kd * I0 / kt))
+    conv_limit = 1 - exp(-(2 * k_p / k_d) * sqrt(f * k_d * I0 / k_t))
     @test isapprox(convs[end], conv_limit; atol=1e-9)
 
     # Two independent routes to the kinetic chain length should agree:
-    # nu = Rp/Ri directly, vs. the closed-form kinetic_chain_length formula.
-    Mrad = radical_concentration(f, kd, I0, kt)
-    Ri = initiation_rate(f, kd, I0)
-    Rp = propagation_rate(kp, M0, Mrad)
-    nu_direct = Rp / Ri
-    nu_formula = kinetic_chain_length(kp, M0, f, kd, I0, kt)
-    @test isapprox(nu_direct, nu_formula; rtol=1e-10)
+    # ν = Rp/Ri directly, vs. the closed-form kinetic_chain_length formula.
+    Mrad = radical_concentration(f, k_d, I0, k_t)
+    Ri = initiation_rate(f, k_d, I0)
+    Rp = propagation_rate(k_p, M0, Mrad)
+    ν_direct = Rp / Ri
+    ν_formula = kinetic_chain_length(k_p, M0, f, k_d, I0, k_t)
+    @test isapprox(ν_direct, ν_formula; rtol=1e-10)
 
     # Xn_mixed reduces to the pure combination/disproportionation cases at
     # its endpoints.
-    nu = nu_formula
-    @test isapprox(Xn_mixed(nu, 0.0), Xn_combination(nu); atol=1e-10)
-    @test isapprox(Xn_mixed(nu, 1.0), Xn_disproportionation(nu); atol=1e-10)
-    @test Xn_combination(nu) > Xn_disproportionation(nu)  # 2nu > nu
+    ν = ν_formula
+    @test isapprox(Xn_mixed(ν, 0.0), Xn_combination(ν); atol=1e-10)
+    @test isapprox(Xn_mixed(ν, 1.0), Xn_disproportionation(ν); atol=1e-10)
+    @test Xn_combination(ν) > Xn_disproportionation(ν)  # 2ν > ν
 end
 
 @testset "step-growth kinetics and the Flory distribution" begin

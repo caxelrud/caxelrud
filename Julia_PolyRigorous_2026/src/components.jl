@@ -12,7 +12,7 @@ Fields
                  molar mass `Mn` of the *chain used in the calculation*, not
                  an intrinsic constant of the polymer species.
 - `Vm`        :: molar volume at the reference conditions, cm^3/mol
-- `delta`     :: Hildebrand solubility parameter, MPa^0.5
+- `δ`         :: Hildebrand solubility parameter, MPa^0.5
 - `Tstar`     :: Sanchez-Lacombe characteristic temperature, K
 - `Pstar`     :: Sanchez-Lacombe characteristic pressure, MPa
 - `rhostar`   :: Sanchez-Lacombe characteristic (close-packed) density, kg/m^3
@@ -22,15 +22,15 @@ struct Species
     kind::Symbol
     M::Float64
     Vm::Float64
-    delta::Float64
+    δ::Float64
     Tstar::Float64
     Pstar::Float64
     rhostar::Float64
 end
 
-function Species(; name, kind, M, Vm, delta, Tstar, Pstar, rhostar)
+function Species(; name, kind, M, Vm, δ, Tstar, Pstar, rhostar)
     kind in (:solvent, :polymer) || throw(ArgumentError("kind must be :solvent or :polymer"))
-    return Species(name, kind, M, Vm, delta, Tstar, Pstar, rhostar)
+    return Species(name, kind, M, Vm, δ, Tstar, Pstar, rhostar)
 end
 
 """
@@ -74,31 +74,31 @@ end
 const SPECIES_DB = Dict{String,Species}(
     "polystyrene" => Species(
         name="Polystyrene", kind=:polymer, M=100_000.0, Vm=95_000.0,
-        delta=18.6, Tstar=735.0, Pstar=357.0, rhostar=1105.0,
+        δ=18.6, Tstar=735.0, Pstar=357.0, rhostar=1105.0,
     ),
     "pmma" => Species(
         name="Poly(methyl methacrylate)", kind=:polymer, M=100_000.0, Vm=78_600.0,
-        delta=19.4, Tstar=696.0, Pstar=503.0, rhostar=1269.0,
+        δ=19.4, Tstar=696.0, Pstar=503.0, rhostar=1269.0,
     ),
     "polyethylene" => Species(
         name="Polyethylene (HDPE-like)", kind=:polymer, M=100_000.0, Vm=110_000.0,
-        delta=16.9, Tstar=649.0, Pstar=425.0, rhostar=904.0,
+        δ=16.9, Tstar=649.0, Pstar=425.0, rhostar=904.0,
     ),
     "toluene" => Species(
         name="Toluene", kind=:solvent, M=92.14, Vm=106.9,
-        delta=18.2, Tstar=635.0, Pstar=419.0, rhostar=969.0,
+        δ=18.2, Tstar=635.0, Pstar=419.0, rhostar=969.0,
     ),
     "benzene" => Species(
         name="Benzene", kind=:solvent, M=78.11, Vm=89.4,
-        delta=18.7, Tstar=630.0, Pstar=444.0, rhostar=999.0,
+        δ=18.7, Tstar=630.0, Pstar=444.0, rhostar=999.0,
     ),
     "cyclohexane" => Species(
         name="Cyclohexane", kind=:solvent, M=84.16, Vm=108.7,
-        delta=16.8, Tstar=650.0, Pstar=354.0, rhostar=896.0,
+        δ=16.8, Tstar=650.0, Pstar=354.0, rhostar=896.0,
     ),
     "n-hexane" => Species(
         name="n-Hexane", kind=:solvent, M=86.18, Vm=131.6,
-        delta=14.9, Tstar=476.0, Pstar=298.0, rhostar=775.0,
+        δ=14.9, Tstar=476.0, Pstar=298.0, rhostar=775.0,
     ),
 )
 

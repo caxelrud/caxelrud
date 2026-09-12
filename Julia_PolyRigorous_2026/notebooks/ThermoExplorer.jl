@@ -71,28 +71,28 @@ Flory-Huggins size ratio N = Vm(polymer)/Vm(solvent) = **$(round(N, digits=1))**
 md"## 2. Flory-Huggins interaction parameter χ"
 
 # ╔═╡ 664d29e8-9bac-414d-91fb-637e798beb72
-@bind chi_s Slider(0.20:0.01:0.50; default=0.34, show_value=true)
+@bind χₛ Slider(0.20:0.01:0.50; default=0.34, show_value=true)
 
 # ╔═╡ 068f474e-d08c-4204-b6e9-dd61fd2147c0
 begin
-    chi = chi_from_solubility(solv.Vm, solv.delta, poly.delta, T; chi_s=chi_s)
+    χ = chi_from_solubility(solv.Vm, solv.δ, poly.δ, T; χₛ=χₛ)
     crit = critical_point(N)
 end
 
 # ╔═╡ 1c1f35f0-9954-40f5-86aa-05fc5da71c63
 md"""
-χ (from solubility parameters, entropic correction χ_s = $(chi_s)) = **$(round(chi, digits=3))**
+χ (from solubility parameters, entropic correction χₛ = $(χₛ)) = **$(round(χ, digits=3))**
 
-Critical point for this N: φ₂,c = $(round(crit.phi2c, digits=4)), χ_c = $(round(crit.chic, digits=3))
+Critical point for this N: φ₂,c = $(round(crit.φ₂_c, digits=4)), χ_c = $(round(crit.χ_c, digits=3))
 
-$(chi > crit.chic ? "⚠️ χ > χ_c at this temperature: the model predicts liquid-liquid phase separation over part of the composition range." : "✅ χ < χ_c at this temperature: the model predicts complete miscibility at all compositions.")
+$(χ > crit.χ_c ? "⚠️ χ > χ_c at this temperature: the model predicts liquid-liquid phase separation over part of the composition range." : "✅ χ < χ_c at this temperature: the model predicts complete miscibility at all compositions.")
 """
 
 # ╔═╡ 715647ac-d886-47bd-ac78-710f2b0ffc41
 begin
-    phis = range(0.001, 0.999; length=300)
-    ln_a1 = [ln_activity_solvent(p, N, chi) for p in phis]
-    plot(phis, ln_a1;
+    φ₂s = range(0.001, 0.999; length=300)
+    ln_a1 = [ln_activity_solvent(p, N, χ) for p in φ₂s]
+    plot(φ₂s, ln_a1;
         xlabel="polymer volume fraction φ₂", ylabel="ln(a₁)",
         label="ln(solvent activity)", lw=2, legend=:bottomleft,
         title="Solvent activity vs. composition")
@@ -104,20 +104,20 @@ md"## 3. Phase diagram (χ vs. φ₂)"
 # ╔═╡ ab4ee0c7-8a80-4431-81b4-30ef03130da6
 begin
     spin = spinodal_curve(N; npoints=300)
-    plt = plot([s.phi2 for s in spin], [s.chi for s in spin];
+    plt = plot([s.φ₂ for s in spin], [s.χ for s in spin];
         label="spinodal", lw=2, xlabel="φ₂", ylabel="χ",
         title="Phase diagram at N = $(round(N, digits=1))", legend=:topright)
-    scatter!(plt, [crit.phi2c], [crit.chic]; label="critical point", ms=6)
-    if chi > crit.chic
-        bcurve = binodal_curve(N; chi_max=max(1.001chi, 1.2crit.chic), npoints=40)
+    scatter!(plt, [crit.φ₂_c], [crit.χ_c]; label="critical point", ms=6)
+    if χ > crit.χ_c
+        bcurve = binodal_curve(N; χ_max=max(1.001χ, 1.2crit.χ_c), npoints=40)
         if !isempty(bcurve)
-            plot!(plt, [b.phi2a for b in bcurve], [b.chi for b in bcurve];
+            plot!(plt, [b.φ₂a for b in bcurve], [b.χ for b in bcurve];
                 label="binodal", lw=2, ls=:dash, color=3)
-            plot!(plt, [b.phi2b for b in bcurve], [b.chi for b in bcurve];
+            plot!(plt, [b.φ₂b for b in bcurve], [b.χ for b in bcurve];
                 label=nothing, lw=2, ls=:dash, color=3)
         end
     end
-    hline!(plt, [chi]; label="current χ", ls=:dot, color=:black)
+    hline!(plt, [χ]; label="current χ", ls=:dot, color=:black)
     plt
 end
 
@@ -158,45 +158,45 @@ md"""
 
 Batch, isothermal free-radical polymerization under the standard
 quasi-steady-state approximation (QSSA), from `kinetics_free_radical.jl`.
-Propagation (`kp`) and termination (`kt`) rate constants are held fixed at
-typical styrene-like values; vary the initiator decomposition rate `kd`,
-initial initiator concentration `[I]₀`, and the disproportionation
+Propagation (`k_p`) and termination (`k_t`) rate constants are held fixed
+at typical styrene-like values; vary the initiator decomposition rate
+`k_d`, initial initiator concentration `[I]₀`, and the disproportionation
 fraction `δ` of termination events.
 """
 
 # ╔═╡ fe3637be-868c-4ee2-bc79-899656be2deb
-@bind log10_kd Slider(-6:0.25:-3; default=-5, show_value=true)
+@bind log10_k_d Slider(-6:0.25:-3; default=-5, show_value=true)
 
 # ╔═╡ 151fb00f-1d16-47fc-b605-8f5e095d1665
 @bind I0_frk Slider(0.001:0.001:0.05; default=0.01, show_value=true)
 
 # ╔═╡ 0ad80cab-531b-405d-8837-b9074d32fcc4
-@bind delta_term Slider(0.0:0.05:1.0; default=0.2, show_value=true)
+@bind δ_term Slider(0.0:0.05:1.0; default=0.2, show_value=true)
 
 # ╔═╡ 2689f077-50ab-4917-9797-2b3c8bce3551
 begin
-    kp_frk = 1.0e3  # L/(mol s), typical propagation rate constant
-    kt_frk = 1.0e7  # L/(mol s), typical termination rate constant
-    f_frk = 0.5     # initiator efficiency
-    M0_frk = 5.0    # mol/L, bulk-ish monomer concentration
-    kd_frk = 10.0^log10_kd
-    nu_frk = kinetic_chain_length(kp_frk, M0_frk, f_frk, kd_frk, I0_frk, kt_frk)
-    Xn_frk = Xn_mixed(nu_frk, delta_term)
+    k_p_frk = 1.0e3  # L/(mol s), typical propagation rate constant
+    k_t_frk = 1.0e7  # L/(mol s), typical termination rate constant
+    f_frk = 0.5      # initiator efficiency
+    M0_frk = 5.0     # mol/L, bulk-ish monomer concentration
+    k_d_frk = 10.0^log10_k_d
+    ν_frk = kinetic_chain_length(k_p_frk, M0_frk, f_frk, k_d_frk, I0_frk, k_t_frk)
+    Xn_frk = Xn_mixed(ν_frk, δ_term)
 end
 
 # ╔═╡ 7534ac44-9487-48af-883d-6e8805b60d70
 md"""
-kd = $(round(kd_frk, sigdigits=3)) 1/s, [I]₀ = $(I0_frk) mol/L, δ = $(delta_term)
+k_d = $(round(k_d_frk, sigdigits=3)) 1/s, [I]₀ = $(I0_frk) mol/L, δ = $(δ_term)
 
-Kinetic chain length ν = $(round(nu_frk, digits=1)); number-average degree of polymerization Xₙ = $(round(Xn_frk, digits=1))
+Kinetic chain length ν = $(round(ν_frk, digits=1)); number-average degree of polymerization Xₙ = $(round(Xn_frk, digits=1))
 
 (Instantaneous PDI is exactly 1.5 for pure combination (δ=0) and 2.0 for pure disproportionation (δ=1); this package does not yet provide a closed-form PDI for the intermediate mixed case.)
 """
 
 # ╔═╡ 5d467096-e27f-4b7e-9d9b-4c33d26e590e
 begin
-    ts_frk = range(0, 5 / kd_frk; length=300)  # a few initiator half-lives
-    convs_frk = [conversion(t, kp_frk, kd_frk, kt_frk, f_frk, I0_frk, M0_frk) for t in ts_frk]
+    ts_frk = range(0, 5 / k_d_frk; length=300)  # a few initiator half-lives
+    convs_frk = [conversion(t, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk) for t in ts_frk]
     plot(ts_frk, convs_frk;
         xlabel="time (s)", ylabel="monomer conversion",
         label=nothing, lw=2,
