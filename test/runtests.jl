@@ -49,8 +49,8 @@ using Dates
     @testset "InfluxConnector line protocol" begin
         line = InfluxConnector.to_line_protocol(
             "temperature",
-            ["room" => "lab 1", "sensor" => "A"],
-            ["value" => 21.5, "ok" => true, "count" => 3],
+            (room = "lab 1", sensor = "A"),
+            (value = 21.5, ok = true, count = 3),
         )
         @test startswith(line, "temperature,room=lab\\ 1,sensor=A ")
         @test occursin("value=21.5", line)

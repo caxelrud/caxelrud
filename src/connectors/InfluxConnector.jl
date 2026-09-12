@@ -98,6 +98,9 @@ function _escape_field_value(v)
     end
 end
 
+_kvpairs(x) = x
+_kvpairs(x::NamedTuple) = pairs(x)
+
 """
     to_line_protocol(measurement, tags, fields; timestamp=nothing) -> String
 
@@ -105,12 +108,17 @@ Build one InfluxDB line-protocol row. `tags` and `fields` are any
 iterable of `key => value` pairs (e.g. `Dict` or `NamedTuple`). `timestamp`,
 if given, should be a `DateTime`/`ZonedDateTime` and is sent as nanoseconds
 since the epoch.
+
+Prefer a `NamedTuple` (e.g. `(value = 21.5, ok = true)`) over an `Array` or
+`Dict` literal when mixing field types: array/dict literals promote all
+values to a common numeric type (e.g. `true` silently becomes `1.0`), while
+each `NamedTuple` field keeps its own type.
 """
 function to_line_protocol(measurement, tags, fields; timestamp = nothing)
     isempty(fields) && error("at least one field is required")
 
-    tag_str = join((string(_escape_tag(k), "=", _escape_tag(v)) for (k, v) in tags), ",")
-    field_str = join((string(_escape_tag(k), "=", _escape_field_value(v)) for (k, v) in fields), ",")
+    tag_str = join((string(_escape_tag(k), "=", _escape_tag(v)) for (k, v) in _kvpairs(tags)), ",")
+    field_str = join((string(_escape_tag(k), "=", _escape_field_value(v)) for (k, v) in _kvpairs(fields)), ",")
 
     line = _escape_measurement(measurement)
     isempty(tag_str) || (line *= "," * tag_str)
