@@ -1,15 +1,13 @@
 name = "PolyRigorous"
 uuid = "715c02a2-9a61-41fa-822d-e87474885a58"
-authors = ["caxelrud"]
 version = "0.1.0"
+authors = ["caxelrud"]
+
+[deps]
+NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 
 [compat]
+NLsolve = "5.0.1"
+Roots = "3.0.8"
 julia = "1.9"
-
-# This package depends on Roots.jl (root finding) and NLsolve.jl (nonlinear
-# systems). They are intentionally NOT pinned here: run
-#
-#   julia --project=. -e 'using Pkg; Pkg.add(["Roots", "NLsolve"])'
-#
-# from the repository root once, and Pkg will add correctly-resolved
-# [deps]/[compat] entries for your Julia version automatically.

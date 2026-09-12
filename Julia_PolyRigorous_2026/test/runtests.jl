@@ -1,6 +1,8 @@
 using Test
 using PolyRigorous
 
+@testset "PolyRigorous" begin
+
 @testset "components" begin
     ps = species("polystyrene")
     tol = species("toluene")
@@ -27,11 +29,12 @@ end
     ln_a1_inftyN = log(1 - phi2) + phi2 + 0.5 * phi2^2
     @test isapprox(ln_a1_bigN, ln_a1_inftyN; atol=1e-6)
 
-    # Symmetry check for N=1: swapping the roles of "solvent" and "polymer"
-    # should give the same activity expression.
+    # Symmetry check for N=1: solvent and polymer are the same size, so
+    # relabeling which species is "solvent" (phi2 <-> 1-phi2) should map
+    # ln_activity_solvent onto ln_activity_polymer.
     @test isapprox(
         PolyRigorous.ln_activity_solvent(phi2, 1.0, 0.7),
-        PolyRigorous.ln_activity_polymer(phi2, 1.0, 0.7);
+        PolyRigorous.ln_activity_polymer(1 - phi2, 1.0, 0.7);
         atol=1e-12,
     )
 end
@@ -113,3 +116,5 @@ end
     kappa = isothermal_compressibility(T, P, tol)
     @test kappa > 0
 end
+
+end # @testset "PolyRigorous"
