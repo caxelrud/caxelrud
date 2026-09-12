@@ -261,14 +261,50 @@ begin
     plot!(xs_flory, weight_fracs; label="weight fraction", lw=2, ls=:dash)
 end
 
-# ╔═╡ bf5f98f5-b671-49b3-9f3b-e4b01165994e
+# ╔═╡ 065d37c5-ab38-430f-a26b-3682ea251778
+md"""
+## 7. Reactor models: batch/PFR vs. CSTR
+
+An ideal PFR is kinetically equivalent to a batch reactor run for a time
+equal to its residence time τ — both curves above (free-radical
+conversion vs. time, step-growth extent of reaction vs. time) are exactly
+that PFR/batch curve. A CSTR, fed continuously and mixed instantaneously,
+instead runs its *entire* volume at one steady-state (outlet) composition
+— so for these kinetics, where the rate falls as the reactant is consumed,
+a single CSTR is always less efficient than a PFR/batch at the same
+residence time: it spends the whole time reacting at the low outlet
+concentration instead of starting fast at the feed concentration. Both
+panels below reuse the sliders from sections 5 and 6 — see
+`reactors.jl`.
+"""
+
+# ╔═╡ f6c82001-9a3d-49ab-871b-3a8c77f26a95
+begin
+    cstr_convs_frk = [cstr_free_radical(τ, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk).conversion for τ in ts_frk]
+    plot(ts_frk, convs_frk;
+        xlabel="residence time τ (s)", ylabel="conversion", legend=:bottomright,
+        label="PFR / batch", lw=2, title="Free-radical: CSTR vs. PFR/batch conversion")
+    plot!(ts_frk, cstr_convs_frk; label="CSTR", lw=2, ls=:dash)
+end
+
+# ╔═╡ 3ae19407-0464-49c4-a3f1-0b305be274d2
+begin
+    cstr_p_ext_curve = [cstr_step_growth_external_catalyst(t, k_step, c0_step).p for t in ts_step]
+    plot(ts_step, p_ext_curve;
+        xlabel="residence time τ", ylabel="extent of reaction p", legend=:bottomright,
+        label="PFR / batch (external catalyst)", lw=2,
+        title="Step-growth: CSTR vs. PFR/batch extent of reaction")
+    plot!(ts_step, cstr_p_ext_curve; label="CSTR (external catalyst)", lw=2, ls=:dash)
+end
+
+# ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
-**Roadmap** (not yet implemented in this version): reactor unit operations
-(CSTR/PFR/batch) built on the kinetics above, coordination polymerization
-kinetics, Sanchez-Lacombe *mixture* thermodynamics (binary mixing rules
-and chemical potentials), and eventually a full flowsheet solver. See the
-repository README for details.
+**Roadmap** (not yet implemented in this version): coordination
+polymerization kinetics, Sanchez-Lacombe *mixture* thermodynamics (binary
+mixing rules and chemical potentials), reactor trains / recycle, and
+eventually a full flowsheet solver. See the repository README for
+details.
 """
 
 # ╔═╡ Cell order:
@@ -308,4 +344,7 @@ repository README for details.
 # ╟─f2306b92-42be-4d25-a276-55e45bb8401d
 # ╠═38670f3b-dd5a-4a13-91dd-49db4586e034
 # ╠═0028e23f-fa21-4be0-a9f9-51a727765eff
-# ╟─bf5f98f5-b671-49b3-9f3b-e4b01165994e
+# ╟─065d37c5-ab38-430f-a26b-3682ea251778
+# ╠═f6c82001-9a3d-49ab-871b-3a8c77f26a95
+# ╠═3ae19407-0464-49c4-a3f1-0b305be274d2
+# ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

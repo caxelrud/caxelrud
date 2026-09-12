@@ -196,4 +196,68 @@ end
     @test flory_PDI(0.9999) > 1.999
 end
 
+@testset "reactors: free-radical CSTR and PFR" begin
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    I_in, M_in = 0.01, 5.0
+    τ = 3600.0  # s
+
+    # As τ -> 0, nothing has reacted yet.
+    res0 = cstr_free_radical(1e-8, k_p, k_d, k_t, f, I_in, M_in)
+    @test isapprox(res0.I, I_in; rtol=1e-6)
+    @test isapprox(res0.M, M_in; rtol=1e-6)
+    @test isapprox(res0.conversion, 0.0; atol=1e-6)
+
+    res = cstr_free_radical(τ, k_p, k_d, k_t, f, I_in, M_in)
+    @test 0 < res.conversion < 1
+
+    # The closed-form CSTR solution must satisfy the steady-state species
+    # balances it was derived from: (Cin - C)/τ = consumption rate of C.
+    @test isapprox((I_in - res.I) / τ, k_d * res.I; rtol=1e-10)
+    Mrad = radical_concentration(f, k_d, res.I, k_t)
+    @test isapprox((M_in - res.M) / τ, propagation_rate(k_p, res.M, Mrad); rtol=1e-10)
+
+    # PFR is just the batch solution at t=τ -- check the wrapper is wired
+    # correctly, and that a single CSTR is less efficient than a PFR at
+    # the same residence time (true for these positive-order, concentration-
+    # decreasing-rate kinetics: a CSTR runs at its low outlet concentration
+    # the whole time, whereas a PFR/batch starts at the high feed
+    # concentration where the rate is fastest).
+    pfr_res = pfr_free_radical(τ, k_p, k_d, k_t, f, I_in, M_in)
+    @test isapprox(pfr_res.M, monomer_concentration(τ, k_p, k_d, k_t, f, I_in, M_in); rtol=1e-12)
+    @test res.conversion < pfr_res.conversion
+end
+
+@testset "reactors: step-growth CSTR and PFR" begin
+    k, c_in = 0.5, 1.0
+    τ = 20.0
+
+    # As τ -> 0, nothing has reacted yet.
+    res0_ext = cstr_step_growth_external_catalyst(1e-8, k, c_in)
+    @test isapprox(res0_ext.c, c_in; rtol=1e-6)
+    @test isapprox(res0_ext.p, 0.0; atol=1e-6)
+    res0_self = cstr_step_growth_self_catalyzed(1e-8, k, c_in)
+    @test isapprox(res0_self.c, c_in; rtol=1e-6)
+    @test isapprox(res0_self.p, 0.0; atol=1e-6)
+
+    res_ext = cstr_step_growth_external_catalyst(τ, k, c_in)
+    @test 0 < res_ext.p < 1
+    # Steady-state balance: (c_in - c)/τ = k c^2.
+    @test isapprox((c_in - res_ext.c) / τ, k * res_ext.c^2; rtol=1e-10)
+
+    res_self = cstr_step_growth_self_catalyzed(τ, k, c_in)
+    @test 0 < res_self.p < 1
+    # Steady-state balance: (c_in - c)/τ = k c^3.
+    @test isapprox((c_in - res_self.c) / τ, k * res_self.c^3; rtol=1e-10)
+
+    # PFR wrapper wiring, and the same CSTR-vs-PFR efficiency ordering as
+    # the free-radical case.
+    pfr_ext = pfr_step_growth_external_catalyst(τ, k, c_in)
+    @test isapprox(pfr_ext.p, extent_reaction_external_catalyst(k, c_in, τ); rtol=1e-12)
+    @test res_ext.p < pfr_ext.p
+
+    pfr_self = pfr_step_growth_self_catalyzed(τ, k, c_in)
+    @test isapprox(pfr_self.p, extent_reaction_self_catalyzed(k, c_in, τ); rtol=1e-12)
+    @test res_self.p < pfr_self.p
+end
+
 end # @testset "PolyRigorous"
