@@ -117,4 +117,83 @@ end
     @test kappa > 0
 end
 
+@testset "free-radical kinetics" begin
+    kp, kd, kt, f = 1e3, 1e-5, 1e7, 0.5
+    I0, M0 = 0.01, 5.0
+
+    # No reaction has happened yet at t=0.
+    @test monomer_concentration(0.0, kp, kd, kt, f, I0, M0) == M0
+    @test conversion(0.0, kp, kd, kt, f, I0, M0) == 0.0
+
+    # Conversion increases monotonically in t and never exceeds 1 -- and, in
+    # this dead-end (finite initiator charge) batch model, never reaches it
+    # either: once the initiator is exhausted, propagation stops with some
+    # monomer left unreacted. The limiting conversion as t -> infinity has a
+    # known closed form (exp(-kd t/2) -> 0 in the conversion formula).
+    ts = [0.0, 100.0, 1e4, 1e6, 1e9]
+    convs = [conversion(t, kp, kd, kt, f, I0, M0) for t in ts]
+    @test issorted(convs)
+    @test all(0 .<= convs .< 1)
+    conv_limit = 1 - exp(-(2 * kp / kd) * sqrt(f * kd * I0 / kt))
+    @test isapprox(convs[end], conv_limit; atol=1e-9)
+
+    # Two independent routes to the kinetic chain length should agree:
+    # nu = Rp/Ri directly, vs. the closed-form kinetic_chain_length formula.
+    Mrad = radical_concentration(f, kd, I0, kt)
+    Ri = initiation_rate(f, kd, I0)
+    Rp = propagation_rate(kp, M0, Mrad)
+    nu_direct = Rp / Ri
+    nu_formula = kinetic_chain_length(kp, M0, f, kd, I0, kt)
+    @test isapprox(nu_direct, nu_formula; rtol=1e-10)
+
+    # Xn_mixed reduces to the pure combination/disproportionation cases at
+    # its endpoints.
+    nu = nu_formula
+    @test isapprox(Xn_mixed(nu, 0.0), Xn_combination(nu); atol=1e-10)
+    @test isapprox(Xn_mixed(nu, 1.0), Xn_disproportionation(nu); atol=1e-10)
+    @test Xn_combination(nu) > Xn_disproportionation(nu)  # 2nu > nu
+end
+
+@testset "step-growth kinetics and the Flory distribution" begin
+    k, c0 = 0.5, 1.0
+
+    @test extent_reaction_external_catalyst(k, c0, 0.0) == 0.0
+    @test extent_reaction_self_catalyzed(k, c0, 0.0) == 0.0
+
+    # Both extents of reaction increase monotonically toward 1 (complete
+    # reaction) as t -> infinity, but never reach or exceed it.
+    ts = [0.0, 1.0, 10.0, 1e4, 1e8]
+    p_ext = [extent_reaction_external_catalyst(k, c0, t) for t in ts]
+    p_self = [extent_reaction_self_catalyzed(k, c0, t) for t in ts]
+    @test issorted(p_ext) && all(0 .<= p_ext .< 1)
+    @test issorted(p_self) && all(0 .<= p_self .< 1)
+    @test p_ext[end] > 0.999
+    @test p_self[end] > 0.999
+
+    # Carothers equation: no reaction means no polymerization (Xn = 1);
+    # the stoichiometrically-balanced case (r=1) is just 1/(1-p).
+    @test carothers_Xn(0.0) == 1.0
+    p = 0.95
+    @test isapprox(carothers_Xn(p), 1 / (1 - p); atol=1e-12)
+    @test isapprox(carothers_Xn(p; r=1.0), 1 / (1 - p); atol=1e-12)
+    # A stoichiometric imbalance (r < 1) caps Xn below the balanced case.
+    @test carothers_Xn(p; r=0.98) < carothers_Xn(p; r=1.0)
+
+    # Flory "most probable" distribution: mole fractions and weight
+    # fractions are each known analytically to sum to 1 over all chain
+    # lengths (geometric series identities); check this numerically with a
+    # truncated but very long sum.
+    xs = 1:200_000
+    mole_sum = sum(flory_mole_fraction(x, p) for x in xs)
+    weight_sum = sum(flory_weight_fraction(x, p) for x in xs)
+    @test isapprox(mole_sum, 1.0; atol=1e-6)
+    @test isapprox(weight_sum, 1.0; atol=1e-3)
+
+    # PDI = Xw/Xn = 1+p, and approaches (but never reaches) 2 as p -> 1.
+    @test isapprox(flory_Xw(p) / carothers_Xn(p), flory_PDI(p); atol=1e-10)
+    @test isapprox(flory_PDI(0.0), 1.0; atol=1e-12)
+    @test flory_PDI(0.9999) < 2.0
+    @test flory_PDI(0.9999) > 1.999
+end
+
 end # @testset "PolyRigorous"

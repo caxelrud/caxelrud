@@ -1,8 +1,8 @@
 """
     PolyRigorous
 
-A Julia toolkit for rigorous polymer solution thermodynamics — the kind of
-calculations underlying tools like Aspen Polymers Plus — starting with:
+A Julia toolkit for rigorous polymer thermodynamics and kinetics — the kind
+of calculations underlying tools like Aspen Polymers Plus — covering:
 
 - A small built-in species database ([`species`](@ref), [`SPECIES_DB`](@ref)).
 - Flory-Huggins lattice theory (activities, osmotic pressure, spinodal and
@@ -11,10 +11,14 @@ calculations underlying tools like Aspen Polymers Plus — starting with:
   Flory-Huggins — see `phase_equilibrium.jl`.
 - The Sanchez-Lacombe lattice-fluid equation of state for pure-component PVT
   behavior — see `sanchez_lacombe.jl`.
+- Free-radical polymerization kinetics (QSSA rate expressions, molecular
+  weight averages, isothermal batch conversion) — see
+  `kinetics_free_radical.jl`.
+- Step-growth (condensation) polymerization kinetics and the Flory
+  molecular weight distribution — see `kinetics_step_growth.jl`.
 
-This is deliberately a *thermodynamics core*: polymerization kinetics,
-reactor models, and full flowsheet simulation are out of scope for this
-version. See the repository README for the roadmap.
+Reactor unit operations and full flowsheet simulation are still out of
+scope for this version. See the repository README for the roadmap.
 """
 module PolyRigorous
 
@@ -22,6 +26,8 @@ include("components.jl")
 include("flory_huggins.jl")
 include("phase_equilibrium.jl")
 include("sanchez_lacombe.jl")
+include("kinetics_free_radical.jl")
+include("kinetics_step_growth.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
 
@@ -33,5 +39,13 @@ export binodal_pair, binodal_curve, spinodal_curve
 
 export sl_eos_residual, reduced_density, density, specific_volume,
        thermal_expansion_coefficient, isothermal_compressibility
+
+export initiation_rate, radical_concentration, propagation_rate,
+       kinetic_chain_length, Xn_combination, Xn_disproportionation,
+       Xn_mixed, monomer_concentration, conversion
+
+export extent_reaction_external_catalyst, extent_reaction_self_catalyzed,
+       carothers_Xn, flory_mole_fraction, flory_weight_fraction, flory_Xw,
+       flory_PDI
 
 end # module PolyRigorous

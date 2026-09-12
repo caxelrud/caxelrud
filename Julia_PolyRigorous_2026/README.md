@@ -8,7 +8,7 @@ about the data](#scope--honesty-about-the-data) below.
 
 ## What's here (v0.1.0)
 
-This first version is a **thermodynamics core**:
+This first version covers **thermodynamics and kinetics**:
 
 - A small built-in species database (`species`, `SPECIES_DB`) with a
   handful of common polymers (polystyrene, PMMA, polyethylene) and
@@ -22,14 +22,22 @@ This first version is a **thermodynamics core**:
 - **Sanchez-Lacombe lattice-fluid equation of state** for pure-component
   PVT behavior: density, specific volume, thermal expansion coefficient,
   isothermal compressibility (`src/sanchez_lacombe.jl`).
+- **Free-radical polymerization kinetics**: QSSA rate expressions,
+  kinetic chain length, number-average degree of polymerization
+  (combination / disproportionation / mixed termination), and isothermal
+  batch conversion vs. time (`src/kinetics_free_radical.jl`).
+- **Step-growth (condensation) polymerization kinetics**: extent of
+  reaction for externally-catalyzed and self-catalyzed kinetics, the
+  Carothers equation (including stoichiometric imbalance), and the Flory
+  "most probable" molecular weight distribution
+  (`src/kinetics_step_growth.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
 ## Roadmap (not yet implemented)
 
-- Polymerization kinetics (free-radical, step-growth, coordination) for
-  molecular weight distributions.
-- Reactor unit operations (CSTR / PFR / batch) built on those kinetics.
+- Coordination (e.g. Ziegler-Natta) polymerization kinetics.
+- Reactor unit operations (CSTR / PFR / batch) built on the kinetics above.
 - Sanchez-Lacombe *mixture* thermodynamics — binary mixing rules and the
   resulting chemical potentials/activities (the current version only
   covers pure-component PVT).
@@ -47,7 +55,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 39 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 64 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -88,6 +96,8 @@ src/
   flory_huggins.jl         # Flory-Huggins activities, spinodal, critical point
   phase_equilibrium.jl     # binodal curve via NLsolve
   sanchez_lacombe.jl       # Sanchez-Lacombe pure-component EOS
+  kinetics_free_radical.jl # free-radical polymerization kinetics (QSSA)
+  kinetics_step_growth.jl  # step-growth kinetics + Flory MWD
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
 notebooks/

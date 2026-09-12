@@ -152,14 +152,122 @@ begin
         title="Sanchez-Lacombe density vs. temperature")
 end
 
+# ╔═╡ 4b222d62-b1d1-4c02-9f3a-85461ce59b1c
+md"""
+## 5. Free-radical polymerization kinetics
+
+Batch, isothermal free-radical polymerization under the standard
+quasi-steady-state approximation (QSSA), from `kinetics_free_radical.jl`.
+Propagation (`kp`) and termination (`kt`) rate constants are held fixed at
+typical styrene-like values; vary the initiator decomposition rate `kd`,
+initial initiator concentration `[I]₀`, and the disproportionation
+fraction `δ` of termination events.
+"""
+
+# ╔═╡ fe3637be-868c-4ee2-bc79-899656be2deb
+@bind log10_kd Slider(-6:0.25:-3; default=-5, show_value=true)
+
+# ╔═╡ 151fb00f-1d16-47fc-b605-8f5e095d1665
+@bind I0_frk Slider(0.001:0.001:0.05; default=0.01, show_value=true)
+
+# ╔═╡ 0ad80cab-531b-405d-8837-b9074d32fcc4
+@bind delta_term Slider(0.0:0.05:1.0; default=0.2, show_value=true)
+
+# ╔═╡ 2689f077-50ab-4917-9797-2b3c8bce3551
+begin
+    kp_frk = 1.0e3  # L/(mol s), typical propagation rate constant
+    kt_frk = 1.0e7  # L/(mol s), typical termination rate constant
+    f_frk = 0.5     # initiator efficiency
+    M0_frk = 5.0    # mol/L, bulk-ish monomer concentration
+    kd_frk = 10.0^log10_kd
+    nu_frk = kinetic_chain_length(kp_frk, M0_frk, f_frk, kd_frk, I0_frk, kt_frk)
+    Xn_frk = Xn_mixed(nu_frk, delta_term)
+end
+
+# ╔═╡ 7534ac44-9487-48af-883d-6e8805b60d70
+md"""
+kd = $(round(kd_frk, sigdigits=3)) 1/s, [I]₀ = $(I0_frk) mol/L, δ = $(delta_term)
+
+Kinetic chain length ν = $(round(nu_frk, digits=1)); number-average degree of polymerization Xₙ = $(round(Xn_frk, digits=1))
+
+(Instantaneous PDI is exactly 1.5 for pure combination (δ=0) and 2.0 for pure disproportionation (δ=1); this package does not yet provide a closed-form PDI for the intermediate mixed case.)
+"""
+
+# ╔═╡ 5d467096-e27f-4b7e-9d9b-4c33d26e590e
+begin
+    ts_frk = range(0, 5 / kd_frk; length=300)  # a few initiator half-lives
+    convs_frk = [conversion(t, kp_frk, kd_frk, kt_frk, f_frk, I0_frk, M0_frk) for t in ts_frk]
+    plot(ts_frk, convs_frk;
+        xlabel="time (s)", ylabel="monomer conversion",
+        label=nothing, lw=2,
+        title="Batch free-radical conversion vs. time")
+end
+
+# ╔═╡ 846ed143-a1ae-4fff-b383-e5404b9112bb
+md"""
+## 6. Step-growth polymerization & the Flory distribution
+
+Extent of reaction `p(t)` for the two classic step-growth kinetic cases
+(externally catalyzed = second order overall; self-catalyzed = third
+order overall), from `kinetics_step_growth.jl`, plus the resulting Flory
+"most probable" molecular weight distribution at the extent of reaction
+reached by time `t_max`.
+"""
+
+# ╔═╡ e5d1ac62-d0e6-4efa-aa5a-302ea607b969
+@bind k_step Slider(0.01:0.01:2.0; default=0.5, show_value=true)
+
+# ╔═╡ 12428167-5594-4efa-bef9-175a32d67f1d
+@bind c0_step Slider(0.5:0.5:5.0; default=1.0, show_value=true)
+
+# ╔═╡ 69263b58-861a-41a0-81bd-6718c32ad6fb
+@bind t_max_step Slider(1:1:200; default=50, show_value=true)
+
+# ╔═╡ 52849a69-c1ac-418e-8f52-35958b930477
+begin
+    p_ext_step = extent_reaction_external_catalyst(k_step, c0_step, t_max_step)
+    p_self_step = extent_reaction_self_catalyzed(k_step, c0_step, t_max_step)
+    Xn_ext_step = carothers_Xn(p_ext_step)
+    Xn_self_step = carothers_Xn(p_self_step)
+end
+
+# ╔═╡ f2306b92-42be-4d25-a276-55e45bb8401d
+md"""
+At t = $(t_max_step): p (external catalyst) = $(round(p_ext_step, digits=4)), Xₙ = $(round(Xn_ext_step, digits=1)); p (self-catalyzed) = $(round(p_self_step, digits=4)), Xₙ = $(round(Xn_self_step, digits=1)).
+
+PDI = 1+p → $(round(flory_PDI(p_ext_step), digits=3)) (external catalyst case), approaching 2 as p → 1.
+"""
+
+# ╔═╡ 38670f3b-dd5a-4a13-91dd-49db4586e034
+begin
+    ts_step = range(0, t_max_step; length=300)
+    p_ext_curve = [extent_reaction_external_catalyst(k_step, c0_step, t) for t in ts_step]
+    p_self_curve = [extent_reaction_self_catalyzed(k_step, c0_step, t) for t in ts_step]
+    plot(ts_step, p_ext_curve; label="external catalyst (2nd order)", lw=2,
+        xlabel="time", ylabel="extent of reaction p", legend=:bottomright,
+        title="Step-growth extent of reaction vs. time")
+    plot!(ts_step, p_self_curve; label="self-catalyzed (3rd order)", lw=2, ls=:dash)
+end
+
+# ╔═╡ 0028e23f-fa21-4be0-a9f9-51a727765eff
+begin
+    xmax_flory = min(ceil(Int, 10 * Xn_ext_step), 500)
+    xs_flory = 1:xmax_flory
+    mole_fracs = [flory_mole_fraction(x, p_ext_step) for x in xs_flory]
+    weight_fracs = [flory_weight_fraction(x, p_ext_step) for x in xs_flory]
+    plot(xs_flory, mole_fracs; label="mole fraction", lw=2,
+        xlabel="chain length x", ylabel="fraction",
+        title="Flory most-probable distribution (external-catalyst branch)")
+    plot!(xs_flory, weight_fracs; label="weight fraction", lw=2, ls=:dash)
+end
+
 # ╔═╡ bf5f98f5-b671-49b3-9f3b-e4b01165994e
 md"""
 ---
-**Roadmap** (not yet implemented in this version): polymerization kinetics
-(free-radical / step-growth / coordination) for molecular weight
-distributions, reactor unit operations (CSTR/PFR/batch) built on those
-kinetics, Sanchez-Lacombe *mixture* thermodynamics (binary mixing rules and
-chemical potentials), and eventually a full flowsheet solver. See the
+**Roadmap** (not yet implemented in this version): reactor unit operations
+(CSTR/PFR/batch) built on the kinetics above, coordination polymerization
+kinetics, Sanchez-Lacombe *mixture* thermodynamics (binary mixing rules
+and chemical potentials), and eventually a full flowsheet solver. See the
 repository README for details.
 """
 
@@ -185,4 +293,19 @@ repository README for details.
 # ╠═0600f577-7093-4143-8b69-321c0b2fbd31
 # ╠═045bea12-4120-4a56-afc7-b386a98d8936
 # ╠═10f6793d-7f12-4f7a-8b39-67a8d4914c7f
+# ╟─4b222d62-b1d1-4c02-9f3a-85461ce59b1c
+# ╠═fe3637be-868c-4ee2-bc79-899656be2deb
+# ╠═151fb00f-1d16-47fc-b605-8f5e095d1665
+# ╠═0ad80cab-531b-405d-8837-b9074d32fcc4
+# ╠═2689f077-50ab-4917-9797-2b3c8bce3551
+# ╟─7534ac44-9487-48af-883d-6e8805b60d70
+# ╠═5d467096-e27f-4b7e-9d9b-4c33d26e590e
+# ╟─846ed143-a1ae-4fff-b383-e5404b9112bb
+# ╠═e5d1ac62-d0e6-4efa-aa5a-302ea607b969
+# ╠═12428167-5594-4efa-bef9-175a32d67f1d
+# ╠═69263b58-861a-41a0-81bd-6718c32ad6fb
+# ╠═52849a69-c1ac-418e-8f52-35958b930477
+# ╟─f2306b92-42be-4d25-a276-55e45bb8401d
+# ╠═38670f3b-dd5a-4a13-91dd-49db4586e034
+# ╠═0028e23f-fa21-4be0-a9f9-51a727765eff
 # ╟─bf5f98f5-b671-49b3-9f3b-e4b01165994e
