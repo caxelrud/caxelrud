@@ -1,0 +1,17 @@
+# Julia
+Manifest.toml
+/docs/build/
+/docs/Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+
+# CondaPkg / PythonCall private environment
+.CondaPkg/
+
+# Local secrets - never commit real credentials
+config/config.toml
+
+# OS / editor cruft
+.DS_Store
+*.swp
