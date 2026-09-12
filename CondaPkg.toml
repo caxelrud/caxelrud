@@ -1,5 +1,0 @@
-[deps]
-python = ">=3.9"
-
-[pip.deps]
-asyncua = ">=1.0.4"
