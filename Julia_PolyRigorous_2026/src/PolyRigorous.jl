@@ -10,7 +10,8 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
 - Liquid-liquid binodal/spinodal phase-split calculations built on top of
   Flory-Huggins — see `phase_equilibrium.jl`.
 - The Sanchez-Lacombe lattice-fluid equation of state for pure-component PVT
-  behavior — see `sanchez_lacombe.jl`.
+  behavior — see `sanchez_lacombe.jl` — plus binary *mixture* PVT behavior
+  via van der Waals-type mixing rules — see `sanchez_lacombe_mixture.jl`.
 - Free-radical polymerization kinetics (QSSA rate expressions, molecular
   weight averages, isothermal batch conversion) — see
   `kinetics_free_radical.jl`.
@@ -31,6 +32,7 @@ include("components.jl")
 include("flory_huggins.jl")
 include("phase_equilibrium.jl")
 include("sanchez_lacombe.jl")
+include("sanchez_lacombe_mixture.jl")
 include("kinetics_free_radical.jl")
 include("kinetics_step_growth.jl")
 include("kinetics_coordination.jl")
@@ -46,6 +48,8 @@ export binodal_pair, binodal_curve, spinodal_curve
 
 export sl_eos_residual, reduced_density, density, specific_volume,
        thermal_expansion_coefficient, isothermal_compressibility
+
+export sl_mixing_rules, sl_mixture_species
 
 export initiation_rate, radical_concentration, propagation_rate,
        kinetic_chain_length, Xn_combination, Xn_disproportionation,

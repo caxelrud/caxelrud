@@ -21,7 +21,12 @@ This first version covers **thermodynamics and kinetics**:
   (`src/phase_equilibrium.jl`).
 - **Sanchez-Lacombe lattice-fluid equation of state** for pure-component
   PVT behavior: density, specific volume, thermal expansion coefficient,
-  isothermal compressibility (`src/sanchez_lacombe.jl`).
+  isothermal compressibility (`src/sanchez_lacombe.jl`); plus binary
+  **mixture** PVT behavior (mixture density) via van der Waals-type
+  mixing rules for the characteristic parameters, reusing the same
+  pure-component EOS solver (`src/sanchez_lacombe_mixture.jl`). Mixture
+  *chemical potentials/activities* are deliberately not implemented —
+  see [Scope & honesty about the data](#scope--honesty-about-the-data).
 - **Free-radical polymerization kinetics**: QSSA rate expressions,
   kinetic chain length, number-average degree of polymerization
   (combination / disproportionation / mixed termination), and isothermal
@@ -52,9 +57,10 @@ This first version covers **thermodynamics and kinetics**:
   back-mixing between stages, not general reactor networks), and
   CSTR/PFR unit operations for coordination polymerization specifically
   (currently only batch).
-- Sanchez-Lacombe *mixture* thermodynamics — binary mixing rules and the
-  resulting chemical potentials/activities (the current version only
-  covers pure-component PVT).
+- Sanchez-Lacombe *mixture* chemical potentials/activities (the current
+  version covers mixture PVT/density via mixing rules, not chemical
+  potentials — see [Scope & honesty about the
+  data](#scope--honesty-about-the-data) for why).
 - A full flowsheet solver connecting multiple unit operations.
 
 ## Getting started
@@ -69,7 +75,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 109 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 126 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -128,6 +134,7 @@ src/
   flory_huggins.jl         # Flory-Huggins activities, spinodal, critical point
   phase_equilibrium.jl     # binodal curve via NLsolve
   sanchez_lacombe.jl       # Sanchez-Lacombe pure-component EOS
+  sanchez_lacombe_mixture.jl # Sanchez-Lacombe binary mixture PVT
   kinetics_free_radical.jl # free-radical polymerization kinetics (QSSA)
   kinetics_step_growth.jl  # step-growth kinetics + Flory MWD
   kinetics_coordination.jl # coordination (Ziegler-Natta) kinetics
@@ -152,6 +159,21 @@ equations, and the test suite checks the code against known analytic
 limits (e.g. the athermal, equal-size Flory-Huggins limit; the spinodal
 touching the binodal at the critical point; the EOS residual vanishing at
 the solved density).
+
+The Sanchez-Lacombe binary mixing rules (`sl_mixing_rules`) were sourced
+from a secondary review (Kontogeorgis, *A Survey of Equations of State
+for Polymers*, IntechOpen 2012) and cross-checked by construction: they
+reduce exactly to the pure-component parameters at the composition
+limits, and the mixture's segment number, reconstructed from the mixed
+parameters via the same formula used for pure components
+(`segment_number`), reproduces the mixing rule's own value exactly — both
+checked in the test suite. Deliberately *not* implemented: Sanchez-Lacombe
+mixture chemical potentials/activities. A literature search specifically
+for this turned up an explicit statement that published mixture
+chemical-potential expressions for the Sanchez-Lacombe EOS are not always
+thermodynamically consistent with each other; rather than pick one such
+formula on faith, this package sticks to the mixture PVT behavior above,
+which can be verified directly.
 
 ## License
 

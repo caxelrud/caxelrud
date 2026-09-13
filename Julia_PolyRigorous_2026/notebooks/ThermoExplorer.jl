@@ -405,13 +405,51 @@ begin
     hline!([pfr_frk.conversion]; label="PFR / batch limit", ls=:dash, color=:black)
 end
 
+# ╔═╡ 0111a035-58a0-45ed-8913-0fea5774366e
+md"""
+## 10. Sanchez-Lacombe binary mixture PVT
+
+Mixture density from the Sanchez-Lacombe mixing rules (`sl_mixing_rules`,
+`sl_mixture_species`, `sanchez_lacombe_mixture.jl`), applied to the same
+polymer/solvent pair and temperature chosen in section 1 and the pressure
+from section 4. `w₁` is the *weight fraction of solvent* in the mixture.
+Only PVT (density) behavior is covered here — Sanchez-Lacombe mixture
+chemical potentials/activities are deliberately not implemented (see the
+module docstring for why).
+"""
+
+# ╔═╡ bba86433-0285-4076-8b58-58e6c870362d
+@bind w1_mix Slider(0.0:0.02:1.0; default=0.5, show_value=true)
+
+# ╔═╡ 3977b7bf-5ee5-49b0-a831-9a9332e7e73d
+begin
+    sp_mix = sl_mixture_species(solv, w1_mix, poly, 1 - w1_mix)
+    ρ_mix = density(T, P_MPa, sp_mix)
+end
+
+# ╔═╡ 9497e799-3098-446c-892e-b485ac224e9a
+md"""
+$(round(100w1_mix, digits=0))% $(solv.name) / $(round(100 * (1 - w1_mix), digits=0))% $(poly.name) by mass, at $(T_C) °C, P = $(P_MPa) MPa: mixture density = $(round(ρ_mix, digits=1)) kg/m³ (pure $(solv.name): $(round(density(T, P_MPa, solv), digits=1)) kg/m³; pure $(poly.name): $(round(density(T, P_MPa, poly), digits=1)) kg/m³).
+"""
+
+# ╔═╡ 6712044c-4a44-4e58-b3a9-d00604247b2f
+begin
+    w1s = range(0.0, 1.0; length=100)
+    ρs_mix = [density(T, P_MPa, sl_mixture_species(solv, w, poly, 1 - w)) for w in w1s]
+    plot(w1s, ρs_mix;
+        xlabel="w₁ (solvent weight fraction)", ylabel="density (kg/m³)",
+        label=nothing, lw=2,
+        title="Sanchez-Lacombe mixture density vs. composition")
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
 **Roadmap** (not yet implemented in this version): Sanchez-Lacombe
-*mixture* thermodynamics (binary mixing rules and chemical potentials),
-recycle loops, and eventually a full flowsheet solver. See the repository
-README for details.
+*mixture* chemical potentials/activities (density/PVT is covered above —
+see the module docstring for why chemical potentials specifically are
+deliberately left out), recycle loops, and eventually a full flowsheet
+solver. See the repository README for details.
 """
 
 # ╔═╡ Cell order:
@@ -467,4 +505,9 @@ README for details.
 # ╠═fefabb16-4409-48a6-b6d6-10ae48e15e97
 # ╟─142995ab-27e7-45fe-9cd4-2e7a6bd60151
 # ╠═91358a8b-c845-4c13-9779-d9d01ac95cd6
+# ╟─0111a035-58a0-45ed-8913-0fea5774366e
+# ╠═bba86433-0285-4076-8b58-58e6c870362d
+# ╠═3977b7bf-5ee5-49b0-a831-9a9332e7e73d
+# ╟─9497e799-3098-446c-892e-b485ac224e9a
+# ╠═6712044c-4a44-4e58-b3a9-d00604247b2f
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

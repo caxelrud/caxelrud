@@ -117,6 +117,61 @@ end
     @test κ > 0
 end
 
+@testset "sanchez-lacombe: binary mixture PVT" begin
+    tol = species("toluene")
+    ps = species("polystyrene")
+
+    @test_throws ArgumentError sl_mixing_rules(tol, 0.6, ps, 0.6)
+
+    # Pure-component limits: at w1=1 (resp. w1=0) the mixing rules must
+    # reduce exactly to component 1's (resp. component 2's) own
+    # parameters, since phi1=1, phi2=0 (resp. the reverse) makes every
+    # cross term drop out.
+    mix1 = sl_mixing_rules(tol, 1.0, ps, 0.0)
+    @test isapprox(mix1.Tstar, tol.Tstar; rtol=1e-10)
+    @test isapprox(mix1.Pstar, tol.Pstar; rtol=1e-10)
+    @test isapprox(mix1.rhostar, tol.rhostar; rtol=1e-10)
+    @test isapprox(mix1.M, tol.M; rtol=1e-10)
+    @test isapprox(mix1.r, segment_number(tol); rtol=1e-10)
+
+    mix2 = sl_mixing_rules(tol, 0.0, ps, 1.0)
+    @test isapprox(mix2.Tstar, ps.Tstar; rtol=1e-10)
+    @test isapprox(mix2.rhostar, ps.rhostar; rtol=1e-10)
+    @test isapprox(mix2.r, segment_number(ps); rtol=1e-10)
+
+    # M_mix is constructed specifically so that segment_number, applied to
+    # the resulting virtual Species, reproduces the mixing rule's own r --
+    # this is the algebraic identity sl_mixture_species relies on to reuse
+    # the pure-component EOS machinery unmodified.
+    w1 = 0.3
+    mix = sl_mixing_rules(tol, w1, ps, 1 - w1)
+    sp_mix = sl_mixture_species(tol, w1, ps, 1 - w1)
+    @test isapprox(segment_number(sp_mix), mix.r; rtol=1e-10)
+    @test isapprox(sp_mix.Tstar, mix.Tstar; rtol=1e-12)
+    @test isapprox(sp_mix.Pstar, mix.Pstar; rtol=1e-12)
+    @test isapprox(sp_mix.rhostar, mix.rhostar; rtol=1e-12)
+
+    # Consequently, PVT functions applied to the virtual mixture Species
+    # must reduce to the pure-component result at the composition limits.
+    T, P = 298.15, 0.1
+    sp_pure1 = sl_mixture_species(tol, 1.0, ps, 0.0)
+    @test isapprox(density(T, P, sp_pure1), density(T, P, tol); rtol=1e-8)
+    sp_pure2 = sl_mixture_species(tol, 0.0, ps, 1.0)
+    @test isapprox(density(T, P, sp_pure2), density(T, P, ps); rtol=1e-8)
+
+    # At an intermediate composition, PVT functions should run cleanly and
+    # give a sensible (finite, positive, sub-close-packed) result.
+    ρ_mix = density(T, P, sp_mix)
+    @test 0 < ρ_mix < sp_mix.rhostar
+
+    # The binary interaction parameter k12 should have a real (nonzero)
+    # effect on the mixed characteristic pressure for a pair with
+    # different characteristic energies.
+    mix_k0 = sl_mixing_rules(tol, w1, ps, 1 - w1; k12=0.0)
+    mix_k = sl_mixing_rules(tol, w1, ps, 1 - w1; k12=0.05)
+    @test !isapprox(mix_k0.Pstar, mix_k.Pstar; rtol=1e-6)
+end
+
 @testset "free-radical kinetics" begin
     k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
     I0, M0 = 0.01, 5.0
