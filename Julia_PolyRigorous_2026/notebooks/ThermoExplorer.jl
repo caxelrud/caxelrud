@@ -297,14 +297,83 @@ begin
     plot!(ts_step, cstr_p_ext_curve; label="CSTR (external catalyst)", lw=2, ls=:dash)
 end
 
+# ╔═╡ d9972239-b3e5-4eba-bd55-d4f90c770282
+md"""
+## 8. Coordination polymerization kinetics
+
+Ziegler-Natta / metallocene-type coordination polymerization, from
+`kinetics_coordination.jl`. Unlike free-radical termination, chain
+transfer here doesn't kill the active site — it releases one dead chain
+and immediately starts a new one — so Xₙ is set by the ratio of
+propagation to the *total* rate of chain-releasing events (transfer +
+true termination), not a bimolecular termination step. Vary the active
+site concentration [C*]₀, the true-termination rate k_t (0 = fully
+"living", no site deactivation), and the hydrogen concentration [H₂] —
+industrially, H₂ is dosed specifically to *lower* molecular weight via
+chain transfer to hydrogen.
+"""
+
+# ╔═╡ 7ad99fa2-83f8-450f-8f70-e4dcc2c6edfb
+@bind log10_C0_star Slider(-6:0.25:-3; default=-4, show_value=true)
+
+# ╔═╡ 48b3199c-d5c5-44a6-8ef6-fd93e59d4e78
+@bind k_t_coord Slider(0.0:0.0002:0.01; default=0.001, show_value=true)
+
+# ╔═╡ 6f8f3320-8e35-4c43-b7c4-6f5d2d4ff11f
+@bind H2_coord Slider(0.0:0.01:1.0; default=0.1, show_value=true)
+
+# ╔═╡ 1e0ff82a-d49e-4c10-bf22-a0fc4edcd9fb
+begin
+    k_p_coord = 50.0      # L/(mol s), illustrative propagation rate constant
+    k_trM_coord = 0.05    # L/(mol s), transfer to monomer
+    k_trH_coord = 0.3     # L/(mol s), transfer to hydrogen
+    k_tr0_coord = 1.0e-3  # 1/s, spontaneous transfer
+    M0_coord = 5.0        # mol/L, bulk-ish monomer concentration
+    C0_star_coord = 10.0^log10_C0_star
+    k_release_coord = transfer_rate_constant(;
+        k_trM=k_trM_coord, M=M0_coord, k_trH=k_trH_coord, H2=H2_coord,
+        k_tr0=k_tr0_coord, k_t=k_t_coord,
+    )
+    Xn_coord = Xn_coordination(k_p_coord, M0_coord, k_release_coord)
+end
+
+# ╔═╡ 56ba9de1-48e7-4252-9b7d-dc4a1e7900dd
+md"""
+[C*]₀ = $(round(C0_star_coord, sigdigits=3)) mol/L, k_t = $(round(k_t_coord, sigdigits=3)) 1/s, [H₂] = $(H2_coord) mol/L
+
+Instantaneous Xₙ = $(round(Xn_coord, digits=1)) (at the initial monomer concentration)
+
+$(k_t_coord == 0 ? "✅ k_t = 0: a fully \"living\" system — the active-site pool never decays, so given enough time all the monomer is eventually consumed." : "The active-site pool decays with a half-life of $(round(log(2)/k_t_coord, sigdigits=3)) s, so conversion will plateau below 100% (a \"dead-end\" polymerization, like the free-radical case in section 5).")
+"""
+
+# ╔═╡ da08bb91-9401-4b31-9952-ba1fccf997ff
+begin
+    ts_coord = k_t_coord == 0 ? range(0, 5 / (k_p_coord * C0_star_coord); length=300) : range(0, 5 / k_t_coord; length=300)
+    convs_coord = [conversion_coordination(t, k_p_coord, C0_star_coord, k_t_coord, M0_coord) for t in ts_coord]
+    plot(ts_coord, convs_coord;
+        xlabel="time (s)", ylabel="monomer conversion", label=nothing, lw=2,
+        title="Batch coordination polymerization conversion vs. time")
+end
+
+# ╔═╡ 4bd841d5-5e7d-48c8-994a-2f48bc049dc5
+begin
+    H2_range = range(0.0, 2.0; length=200)
+    Xn_vs_H2 = [Xn_coordination(k_p_coord, M0_coord, transfer_rate_constant(;
+        k_trM=k_trM_coord, M=M0_coord, k_trH=k_trH_coord, H2=h,
+        k_tr0=k_tr0_coord, k_t=k_t_coord,
+    )) for h in H2_range]
+    plot(H2_range, Xn_vs_H2;
+        xlabel="[H₂] (mol/L)", ylabel="instantaneous Xₙ", label=nothing, lw=2,
+        title="Hydrogen response: Xₙ vs. [H₂] (industrial MW control lever)")
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
-**Roadmap** (not yet implemented in this version): coordination
-polymerization kinetics, Sanchez-Lacombe *mixture* thermodynamics (binary
-mixing rules and chemical potentials), reactor trains / recycle, and
-eventually a full flowsheet solver. See the repository README for
-details.
+**Roadmap** (not yet implemented in this version): Sanchez-Lacombe
+*mixture* thermodynamics (binary mixing rules and chemical potentials),
+reactor trains / recycle, and eventually a full flowsheet solver. See the
+repository README for details.
 """
 
 # ╔═╡ Cell order:
@@ -347,4 +416,12 @@ details.
 # ╟─065d37c5-ab38-430f-a26b-3682ea251778
 # ╠═f6c82001-9a3d-49ab-871b-3a8c77f26a95
 # ╠═3ae19407-0464-49c4-a3f1-0b305be274d2
+# ╟─d9972239-b3e5-4eba-bd55-d4f90c770282
+# ╠═7ad99fa2-83f8-450f-8f70-e4dcc2c6edfb
+# ╠═48b3199c-d5c5-44a6-8ef6-fd93e59d4e78
+# ╠═6f8f3320-8e35-4c43-b7c4-6f5d2d4ff11f
+# ╠═1e0ff82a-d49e-4c10-bf22-a0fc4edcd9fb
+# ╟─56ba9de1-48e7-4252-9b7d-dc4a1e7900dd
+# ╠═da08bb91-9401-4b31-9952-ba1fccf997ff
+# ╠═4bd841d5-5e7d-48c8-994a-2f48bc049dc5
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

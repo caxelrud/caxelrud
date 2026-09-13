@@ -16,8 +16,10 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   `kinetics_free_radical.jl`.
 - Step-growth (condensation) polymerization kinetics and the Flory
   molecular weight distribution — see `kinetics_step_growth.jl`.
-- Ideal CSTR and PFR reactor unit operations built on both kinetic
-  schemes — see `reactors.jl`.
+- Coordination (Ziegler-Natta / metallocene) polymerization kinetics — see
+  `kinetics_coordination.jl`.
+- Ideal CSTR and PFR reactor unit operations built on the free-radical and
+  step-growth kinetic schemes — see `reactors.jl`.
 
 Full flowsheet simulation (connecting multiple unit operations with
 streams and recycle) is still out of scope for this version. See the
@@ -31,6 +33,7 @@ include("phase_equilibrium.jl")
 include("sanchez_lacombe.jl")
 include("kinetics_free_radical.jl")
 include("kinetics_step_growth.jl")
+include("kinetics_coordination.jl")
 include("reactors.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
@@ -55,5 +58,8 @@ export extent_reaction_external_catalyst, extent_reaction_self_catalyzed,
 export cstr_free_radical, pfr_free_radical, cstr_step_growth_external_catalyst,
        cstr_step_growth_self_catalyzed, pfr_step_growth_external_catalyst,
        pfr_step_growth_self_catalyzed
+
+export coordination_propagation_rate, transfer_rate_constant, Xn_coordination,
+       monomer_concentration_coordination, conversion_coordination
 
 end # module PolyRigorous

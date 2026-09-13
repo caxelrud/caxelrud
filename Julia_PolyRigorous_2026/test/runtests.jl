@@ -260,4 +260,60 @@ end
     @test res_self.p < pfr_self.p
 end
 
+@testset "coordination polymerization kinetics" begin
+    k_p, M, C_star = 50.0, 2.0, 1e-4
+
+    # transfer_rate_constant: defaults to zero, and each named mechanism
+    # contributes additively.
+    @test transfer_rate_constant() == 0.0
+    k_trM, k_trH, k_tr0, k_t = 0.1, 0.05, 1e-3, 1e-4
+    H2 = 0.01
+    k_release = transfer_rate_constant(; k_trM=k_trM, M=M, k_trH=k_trH, H2=H2, k_tr0=k_tr0, k_t=k_t)
+    @test isapprox(k_release, k_trM * M + k_trH * H2 + k_tr0 + k_t; atol=1e-14)
+
+    @test_throws ArgumentError Xn_coordination(k_p, M, 0.0)
+
+    Xn = Xn_coordination(k_p, M, k_release)
+    @test Xn > 0
+
+    # Self-consistency with the mass-balance derivation this formula comes
+    # from: Xn * (rate of chain-releasing events) == propagation rate.
+    Rp = coordination_propagation_rate(k_p, C_star, M)
+    release_rate = k_release * C_star
+    @test isapprox(Xn * release_rate, Rp; rtol=1e-12)
+
+    # No termination at all (k_release_total -> 0) means infinitely long
+    # chains -- consistent with the "living" limit.
+    @test Xn_coordination(k_p, M, 1e-10) > Xn_coordination(k_p, M, 1.0)
+
+    # Batch conversion: the non-deactivating (k_t=0, "living") and
+    # deactivating (k_t>0) branches of monomer_concentration_coordination
+    # must agree as k_t -> 0 (this is exactly the kind of 0/0 numerical
+    # trap that broke the step-growth CSTR earlier -- checked directly,
+    # not just assumed continuous).
+    C0_star, M0, t = 1e-4, 5.0, 100.0
+    M_living = monomer_concentration_coordination(t, k_p, C0_star, 0.0, M0)
+    M_near_living = monomer_concentration_coordination(t, k_p, C0_star, 1e-10, M0)
+    @test isapprox(M_living, M_near_living; rtol=1e-6)
+    @test isapprox(M_living, M0 * exp(-k_p * C0_star * t); rtol=1e-12)
+
+    @test conversion_coordination(0.0, k_p, C0_star, k_t, M0) == 0.0
+
+    # Living (k_t=0): the active-site pool never decays, so given enough
+    # time *all* the monomer is eventually consumed -- unlike free-radical
+    # or a deactivating coordination catalyst, there's no "dead-end" limit.
+    ts = [0.0, 1.0, 10.0, 100.0, 1e4]
+    convs_living = [conversion_coordination(t, k_p, C0_star, 0.0, M0) for t in ts]
+    @test issorted(convs_living)
+    @test convs_living[end] > 0.999
+
+    # Deactivating (k_t>0): conversion approaches a finite limit < 1, from
+    # the same closed form used for the free-radical batch solution.
+    convs_deactivating = [conversion_coordination(t, k_p, C0_star, k_t, M0) for t in ts]
+    @test issorted(convs_deactivating)
+    conv_limit = 1 - exp(-(k_p * C0_star / k_t))
+    @test isapprox(convs_deactivating[end], conv_limit; atol=1e-6)
+    @test convs_deactivating[end] < convs_living[end]
+end
+
 end # @testset "PolyRigorous"

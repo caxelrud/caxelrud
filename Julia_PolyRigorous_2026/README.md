@@ -31,17 +31,24 @@ This first version covers **thermodynamics and kinetics**:
   Carothers equation (including stoichiometric imbalance), and the Flory
   "most probable" molecular weight distribution
   (`src/kinetics_step_growth.jl`).
-- **Reactor unit operations** built on both kinetic schemes: ideal CSTR
-  (steady-state mass balance) and PFR (kinetically equivalent to a batch
-  reactor run for a time equal to its residence time) (`src/reactors.jl`).
+- **Coordination (Ziegler-Natta / metallocene) polymerization kinetics**:
+  the "living-like" chain-growth mechanism, where Xₙ is derived from
+  conservation of chain count (propagation rate over the total rate of
+  chain-releasing events) rather than an uncertain closed-form formula,
+  plus the classic industrial hydrogen-response lever for molecular
+  weight control (`src/kinetics_coordination.jl`).
+- **Reactor unit operations** built on the free-radical and step-growth
+  kinetic schemes: ideal CSTR (steady-state mass balance) and PFR
+  (kinetically equivalent to a batch reactor run for a time equal to its
+  residence time) (`src/reactors.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
 ## Roadmap (not yet implemented)
 
-- Coordination (e.g. Ziegler-Natta) polymerization kinetics.
 - Reactor trains / recycle (the current version covers a single ideal
-  CSTR or PFR, not networks of them).
+  CSTR or PFR, not networks of them), and CSTR/PFR unit operations for
+  coordination polymerization specifically (currently only batch).
 - Sanchez-Lacombe *mixture* thermodynamics — binary mixing rules and the
   resulting chemical potentials/activities (the current version only
   covers pure-component PVT).
@@ -59,7 +66,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 84 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 98 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -120,6 +127,7 @@ src/
   sanchez_lacombe.jl       # Sanchez-Lacombe pure-component EOS
   kinetics_free_radical.jl # free-radical polymerization kinetics (QSSA)
   kinetics_step_growth.jl  # step-growth kinetics + Flory MWD
+  kinetics_coordination.jl # coordination (Ziegler-Natta) kinetics
   reactors.jl              # ideal CSTR and PFR unit operations
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
