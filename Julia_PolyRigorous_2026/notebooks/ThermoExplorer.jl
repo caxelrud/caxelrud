@@ -498,16 +498,72 @@ begin
     hline!([single_cstr_frk.conversion]; label="CSTR (R→∞) limit", ls=:dot, color=:red)
 end
 
+# ╔═╡ 178d60eb-0691-4815-8822-d1d98ce1a893
+md"""
+## 12. General flowsheet: branch-and-remix
+
+Beyond a single recycle loop (section 11), `flowsheet.jl`'s `Stream`,
+`mix`, and `split_stream` primitives compose into *any* topology — this
+one doesn't even need `solve_tear`, since there's no cycle to converge.
+The free-radical fresh feed (section 5) is split into two branches, each
+run through its own PFR at a different residence time, then remixed —
+plain Julia function composition over `Stream`s, reusing the same
+[`pfr_free_radical`](@ref) reactor function as everywhere else (via its
+`Stream`-taking method).
+"""
+
+# ╔═╡ a2a2b30c-5670-48f4-9ba9-54fcd576e200
+@bind frac_branch1 Slider(0.0:0.02:1.0; default=0.5, show_value=true)
+
+# ╔═╡ 7fd882bb-d68f-47b5-8f41-8da40a0b59be
+begin
+    τ_short_fs = τ_total_frk / 4
+    τ_long_fs = τ_total_frk * 2
+    feed_fs = Stream(1.0, (I=I0_frk, M=M0_frk))
+    branch1_fs, branch2_fs = split_stream(feed_fs, frac_branch1)
+    out1_fs = pfr_free_radical(τ_short_fs, k_p_frk, k_d_frk, k_t_frk, f_frk, branch1_fs)
+    out2_fs = pfr_free_radical(τ_long_fs, k_p_frk, k_d_frk, k_t_frk, f_frk, branch2_fs)
+    combined_fs = mix(out1_fs, out2_fs)
+    conv1_fs = 1 - out1_fs.x.M / M0_frk
+    conv2_fs = 1 - out2_fs.x.M / M0_frk
+    conv_combined_fs = 1 - combined_fs.x.M / M0_frk
+end
+
+# ╔═╡ 29e2e8ac-9bbf-4ec5-abb2-6e3ca58d611e
+md"""
+$(round(100frac_branch1, digits=0))% of the feed to the short-τ branch (τ = $(round(τ_short_fs, sigdigits=3)) s, conversion = $(round(conv1_fs, digits=4))), remainder to the long-τ branch (τ = $(round(τ_long_fs, sigdigits=3)) s, conversion = $(round(conv2_fs, digits=4))).
+
+Remixed product conversion = $(round(conv_combined_fs, digits=4)) — exactly the flow-weighted average of the two branch conversions (a mixer's own definition, `mix`), so it always lies between them.
+"""
+
+# ╔═╡ 58deff6b-a56e-4937-9451-149ec44b8324
+begin
+    fracs_fs = range(0.0, 1.0; length=100)
+    convs_combined_fs = Float64[]
+    for fr in fracs_fs
+        b1, b2 = split_stream(feed_fs, fr)
+        o1 = pfr_free_radical(τ_short_fs, k_p_frk, k_d_frk, k_t_frk, f_frk, b1)
+        o2 = pfr_free_radical(τ_long_fs, k_p_frk, k_d_frk, k_t_frk, f_frk, b2)
+        c = mix(o1, o2)
+        push!(convs_combined_fs, 1 - c.x.M / M0_frk)
+    end
+    plot(fracs_fs, convs_combined_fs;
+        xlabel="fraction of feed to short-τ branch", ylabel="remixed conversion",
+        label=nothing, lw=2, legend=:right,
+        title="Branch-and-remix: conversion vs. split fraction")
+    hline!([conv1_fs]; label="short-τ branch alone", ls=:dash, color=:black)
+    hline!([conv2_fs]; label="long-τ branch alone", ls=:dot, color=:red)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
 **Roadmap** (not yet implemented in this version): Sanchez-Lacombe
 *mixture* chemical potentials/activities (density/PVT is covered above —
 see the module docstring for why chemical potentials specifically are
-deliberately left out), and a general flowsheet solver connecting
-arbitrary networks of unit operations (this version covers one reactor
-with one recycle loop around it, not arbitrary topology). See the
-repository README for details.
+deliberately left out). This is the one remaining item — recycle loops,
+coordination reactors, and a general flowsheet solver (sections 8, 11,
+and 12 above) are now implemented. See the repository README for details.
 """
 
 # ╔═╡ Cell order:
@@ -573,4 +629,9 @@ repository README for details.
 # ╠═569b1802-d2fc-4092-a694-11b6703fc640
 # ╟─dd2436b1-9501-4982-9d6b-3f3649c45100
 # ╠═66ee83fc-148a-4a85-91a0-fbba76f70197
+# ╟─178d60eb-0691-4815-8822-d1d98ce1a893
+# ╠═a2a2b30c-5670-48f4-9ba9-54fcd576e200
+# ╠═7fd882bb-d68f-47b5-8f41-8da40a0b59be
+# ╟─29e2e8ac-9bbf-4ec5-abb2-6e3ca58d611e
+# ╠═58deff6b-a56e-4937-9451-149ec44b8324
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

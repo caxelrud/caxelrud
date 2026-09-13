@@ -22,12 +22,17 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
 - Ideal CSTR, PFR, and CSTR-train reactor unit operations for all three
   kinetic schemes above — see `reactors.jl`.
 - A single PFR-with-recycle unit operation (one implicit recycle loop
-  around one reactor) for all three kinetic schemes — see
-  `reactor_recycle.jl`.
+  around one reactor), solved via closed forms and root-finding derived
+  by hand for that one topology — see `reactor_recycle.jl`.
+- A general flowsheet framework — [`Stream`](@ref)s, [`mix`](@ref)ers,
+  [`split_stream`](@ref) splitters, and [`solve_tear`](@ref) for recycle
+  convergence — that composes the reactor unit operations above into
+  *arbitrary* topologies (multiple reactors, multiple or nested recycle
+  loops, branch-and-remix networks), using the same tear-stream method
+  standard process simulators use — see `flowsheet.jl`.
 
-A general flowsheet solver (arbitrary networks of multiple unit
-operations, not just one reactor with one recycle loop) is still out of
-scope for this version. See the repository README for the roadmap.
+Sanchez-Lacombe *mixture* chemical potentials/activities remain out of
+scope — see the repository README for why.
 """
 module PolyRigorous
 
@@ -41,6 +46,7 @@ include("kinetics_step_growth.jl")
 include("kinetics_coordination.jl")
 include("reactors.jl")
 include("reactor_recycle.jl")
+include("flowsheet.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
 
@@ -78,5 +84,7 @@ export cstr_coordination, pfr_coordination, cstr_train_coordination
 export pfr_free_radical_recycle, pfr_coordination_recycle,
        pfr_step_growth_external_catalyst_recycle,
        pfr_step_growth_self_catalyzed_recycle
+
+export Stream, mix, split_stream, solve_tear
 
 end # module PolyRigorous

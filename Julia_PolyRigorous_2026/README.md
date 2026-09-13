@@ -60,19 +60,32 @@ This first version covers **thermodynamics and kinetics**:
   nominal residence time) as `R → ∞` — the classic "PFR with infinite
   recycle behaves like a CSTR" result, checked directly in the test suite
   (`src/reactor_recycle.jl`).
+- **A general flowsheet framework**: `Stream`s carrying a volumetric flow
+  rate and composition, `mix` and `split_stream` unit operations, and the
+  reactor functions above extended (via new methods, same names) to
+  consume and produce `Stream`s — so arbitrary topologies (multiple
+  reactors, branch-and-remix networks, multiple or nested recycle loops)
+  are just ordinary Julia function composition. Recycle loops close by
+  *tear-stream* convergence (`solve_tear`): guess the torn stream, go
+  around the loop once, iterate the guess toward its own image by damped
+  successive substitution — the standard "sequential-modular" method used
+  by commercial process simulators, not something specific to this
+  package's own derivations. Verified by construction: assembling the
+  *same* single-PFR-with-recycle topology this way and solving it with
+  `solve_tear` reproduces every one of `reactor_recycle.jl`'s hand-derived
+  closed forms to numerical precision (`src/flowsheet.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
 ## Roadmap (not yet implemented)
 
-- A general flowsheet solver connecting arbitrary networks of multiple
-  unit operations (the current version covers CSTRs in series with no
-  back-mixing between stages, and a single PFR with one recycle loop
-  around it, not arbitrary topology).
 - Sanchez-Lacombe *mixture* chemical potentials/activities (the current
   version covers mixture PVT/density via mixing rules, not chemical
   potentials — see [Scope & honesty about the
-  data](#scope--honesty-about-the-data) for why).
+  data](#scope--honesty-about-the-data) for why). This is the one
+  remaining item — everything else originally on this roadmap (recycle
+  loops, coordination reactors, a general flowsheet solver) is now
+  implemented above.
 
 ## Getting started
 
@@ -86,7 +99,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 160 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 182 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -151,6 +164,7 @@ src/
   kinetics_coordination.jl # coordination (Ziegler-Natta) kinetics
   reactors.jl              # ideal CSTR, PFR, and CSTR-train unit operations
   reactor_recycle.jl        # PFR-with-recycle unit operations
+  flowsheet.jl              # Stream/mix/split_stream + tear-stream solver
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
 notebooks/

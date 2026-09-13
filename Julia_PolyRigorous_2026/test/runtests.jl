@@ -532,4 +532,148 @@ end
     @test pfr_step_growth_self_catalyzed_recycle(τ3, R2, 0.0, c_fresh).p == 0.0
 end
 
+@testset "flowsheet: Stream, mix, split_stream" begin
+    s1 = Stream(2.0, (M=1.0,))
+    s2 = Stream(3.0, (M=4.0,))
+    m = mix(s1, s2)
+    @test m.Q == 5.0
+    @test isapprox(m.x.M, (2 * 1.0 + 3 * 4.0) / 5.0; atol=1e-12)
+
+    # mix with more than two streams: weights must still sum correctly.
+    s3 = Stream(5.0, (M=10.0,))
+    m3 = mix(s1, s2, s3)
+    @test m3.Q == 10.0
+    @test isapprox(m3.x.M, (2 * 1.0 + 3 * 4.0 + 5 * 10.0) / 10.0; atol=1e-12)
+
+    a, b = split_stream(Stream(10.0, (M=7.0,)), 0.3)
+    @test isapprox(a.Q, 3.0; atol=1e-12) && isapprox(b.Q, 7.0; atol=1e-12)
+    @test a.x.M == 7.0 && b.x.M == 7.0  # a splitter never changes composition
+    @test_throws ArgumentError split_stream(Stream(10.0, (M=7.0,)), 1.5)
+end
+
+@testset "flowsheet: general solve_tear reproduces reactor_recycle closed forms" begin
+    # For each of the four kinetic schemes, assemble the *same* single-PFR-
+    # with-recycle topology out of mix/split_stream/pfr_* and solve it with
+    # the general tear-stream solver -- it must reproduce the hand-derived
+    # closed form in reactor_recycle.jl to numerical precision. This ties
+    # the general mechanism directly to results already verified above.
+    Q_fresh = 1.0
+    R = 2.5
+
+    # --- Free-radical ---
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    I_fresh, M_fresh = 0.01, 5.0
+    τ = 3600.0
+    τ_hold = τ / (1 + R)
+    s_fresh = Stream(Q_fresh, (I=I_fresh, M=M_fresh))
+
+    function loop_frk(recycle)
+        mixed = mix(s_fresh, recycle)
+        out = pfr_free_radical(τ_hold, k_p, k_d, k_t, f, mixed)
+        new_recycle, _ = split_stream(out, R / (1 + R))
+        return new_recycle
+    end
+    res_frk = solve_tear(loop_frk, Stream(R * Q_fresh, s_fresh.x))
+    @test res_frk.converged
+
+    mixed_final = mix(s_fresh, res_frk.stream)
+    out_final = pfr_free_radical(τ_hold, k_p, k_d, k_t, f, mixed_final)
+    _, product_final = split_stream(out_final, R / (1 + R))
+
+    closed_frk = pfr_free_radical_recycle(τ, R, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    @test isapprox(product_final.x.M, closed_frk.M_out; rtol=1e-6)
+    @test isapprox(mixed_final.x.I, closed_frk.I_in; rtol=1e-6)
+    @test isapprox(out_final.x.I, closed_frk.I_out; rtol=1e-6)
+
+    # --- Coordination ---
+    k_p2, k_t2 = 50.0, 1e-4
+    C0_star_fresh, M_fresh2 = 1e-4, 5.0
+    τ2 = 100.0
+    τ2_hold = τ2 / (1 + R)
+    s_fresh2 = Stream(Q_fresh, (C_star=C0_star_fresh, M=M_fresh2))
+
+    function loop_coord(recycle)
+        mixed = mix(s_fresh2, recycle)
+        out = pfr_coordination(τ2_hold, k_p2, k_t2, mixed)
+        new_recycle, _ = split_stream(out, R / (1 + R))
+        return new_recycle
+    end
+    res_coord = solve_tear(loop_coord, Stream(R * Q_fresh, s_fresh2.x))
+    @test res_coord.converged
+
+    mixed2_final = mix(s_fresh2, res_coord.stream)
+    out2_final = pfr_coordination(τ2_hold, k_p2, k_t2, mixed2_final)
+    _, product2_final = split_stream(out2_final, R / (1 + R))
+
+    closed_coord = pfr_coordination_recycle(τ2, R, k_p2, k_t2, C0_star_fresh, M_fresh2)
+    @test isapprox(product2_final.x.M, closed_coord.M_out; rtol=1e-6)
+
+    # --- Step-growth, external catalyst ---
+    k, c_fresh = 0.5, 1.0
+    τ3 = 20.0
+    τ3_hold = τ3 / (1 + R)
+    s_fresh3 = Stream(Q_fresh, (c=c_fresh,))
+
+    function loop_ext(recycle)
+        mixed = mix(s_fresh3, recycle)
+        out = pfr_step_growth_external_catalyst(τ3_hold, k, mixed)
+        new_recycle, _ = split_stream(out, R / (1 + R))
+        return new_recycle
+    end
+    res_ext = solve_tear(loop_ext, Stream(R * Q_fresh, s_fresh3.x))
+    @test res_ext.converged
+
+    mixed3_final = mix(s_fresh3, res_ext.stream)
+    out3_final = pfr_step_growth_external_catalyst(τ3_hold, k, mixed3_final)
+    _, product3_final = split_stream(out3_final, R / (1 + R))
+
+    closed_ext = pfr_step_growth_external_catalyst_recycle(τ3, R, k, c_fresh)
+    p_ext_general = 1 - product3_final.x.c / c_fresh
+    @test isapprox(p_ext_general, closed_ext.p; rtol=1e-6)
+
+    # --- Step-growth, self-catalyzed ---
+    function loop_self(recycle)
+        mixed = mix(s_fresh3, recycle)
+        out = pfr_step_growth_self_catalyzed(τ3_hold, k, mixed)
+        new_recycle, _ = split_stream(out, R / (1 + R))
+        return new_recycle
+    end
+    res_self = solve_tear(loop_self, Stream(R * Q_fresh, s_fresh3.x))
+    @test res_self.converged
+
+    mixed4_final = mix(s_fresh3, res_self.stream)
+    out4_final = pfr_step_growth_self_catalyzed(τ3_hold, k, mixed4_final)
+    _, product4_final = split_stream(out4_final, R / (1 + R))
+
+    closed_self = pfr_step_growth_self_catalyzed_recycle(τ3, R, k, c_fresh)
+    p_self_general = 1 - product4_final.x.c / c_fresh
+    @test isapprox(p_self_general, closed_self.p; rtol=1e-6)
+end
+
+@testset "flowsheet: topology beyond a single recycle loop" begin
+    # CSTR -> splitter -> two parallel PFRs at different residence times ->
+    # remixed. No recycle here, so this checks composability itself (chaining
+    # Stream-based unit operations through a genuine branch-and-remix
+    # topology) rather than solve_tear.
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    s_feed = Stream(1.0, (I=0.01, M=5.0))
+
+    after_cstr = cstr_free_radical(1000.0, k_p, k_d, k_t, f, s_feed)
+    branch1, branch2 = split_stream(after_cstr, 0.5)
+    out1 = pfr_free_radical(500.0, k_p, k_d, k_t, f, branch1)
+    out2 = pfr_free_radical(2000.0, k_p, k_d, k_t, f, branch2)
+    combined = mix(out1, out2)
+
+    # Splitting preserves composition, so both branches start from the same
+    # composition; a longer residence time converts more, so the branches'
+    # outlet M's must differ, and the remixed M must be their flow-weighted
+    # average (mix's own definition) and therefore lie between them.
+    @test branch1.x.M == branch2.x.M == after_cstr.x.M
+    @test out1.x.M != out2.x.M
+    expected_M = (out1.Q * out1.x.M + out2.Q * out2.x.M) / (out1.Q + out2.Q)
+    @test isapprox(combined.x.M, expected_M; atol=1e-12)
+    @test min(out1.x.M, out2.x.M) <= combined.x.M <= max(out1.x.M, out2.x.M)
+    @test isapprox(combined.Q, s_feed.Q; atol=1e-12)  # constant-density mass balance
+end
+
 end # @testset "PolyRigorous"
