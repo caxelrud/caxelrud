@@ -38,17 +38,20 @@ This first version covers **thermodynamics and kinetics**:
   plus the classic industrial hydrogen-response lever for molecular
   weight control (`src/kinetics_coordination.jl`).
 - **Reactor unit operations** built on the free-radical and step-growth
-  kinetic schemes: ideal CSTR (steady-state mass balance) and PFR
+  kinetic schemes: ideal CSTR (steady-state mass balance), PFR
   (kinetically equivalent to a batch reactor run for a time equal to its
-  residence time) (`src/reactors.jl`).
+  residence time), and CSTRs-in-series reactor trains — verified against
+  the classic result that a train converges to PFR performance as the
+  stage count grows at fixed total residence time (`src/reactors.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
 ## Roadmap (not yet implemented)
 
-- Reactor trains / recycle (the current version covers a single ideal
-  CSTR or PFR, not networks of them), and CSTR/PFR unit operations for
-  coordination polymerization specifically (currently only batch).
+- Recycle loops (the current version covers CSTRs in series with no
+  back-mixing between stages, not general reactor networks), and
+  CSTR/PFR unit operations for coordination polymerization specifically
+  (currently only batch).
 - Sanchez-Lacombe *mixture* thermodynamics — binary mixing rules and the
   resulting chemical potentials/activities (the current version only
   covers pure-component PVT).
@@ -66,7 +69,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 98 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 109 tests passing) as part of building this package.
 
 ### Using the package directly
 

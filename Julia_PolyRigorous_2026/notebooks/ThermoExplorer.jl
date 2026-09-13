@@ -367,13 +367,51 @@ begin
         title="Hydrogen response: Xₙ vs. [H₂] (industrial MW control lever)")
 end
 
+# ╔═╡ 8139da23-ae9c-4052-8bd3-32ef4fa0391f
+md"""
+## 9. Reactor trains: CSTRs in series → PFR
+
+Chaining `n` ideal CSTRs in series, each stage's outlet feeding the next
+stage's inlet (`reactors.jl`), and holding the *total* residence time
+fixed while increasing `n`: performance should climb monotonically from
+the single-CSTR value toward the PFR/batch value as `n → ∞` — a classic
+reactor-engineering result. Reuses the free-radical parameters from
+section 5, with total residence time equal to that section's time axis.
+"""
+
+# ╔═╡ df12ac0e-1ac5-4ed5-80bc-78be20d8940c
+@bind n_stages_frk Slider(1:1:50; default=5, show_value=true)
+
+# ╔═╡ fefabb16-4409-48a6-b6d6-10ae48e15e97
+begin
+    τ_total_frk = ts_frk[end]
+    train_res_frk = cstr_train_free_radical(n_stages_frk, τ_total_frk / n_stages_frk, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk)
+    single_cstr_frk = cstr_free_radical(τ_total_frk, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk)
+    pfr_frk = pfr_free_radical(τ_total_frk, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk)
+end
+
+# ╔═╡ 142995ab-27e7-45fe-9cd4-2e7a6bd60151
+md"""
+At fixed total residence time τ = $(round(τ_total_frk, sigdigits=3)) s: a single CSTR gives conversion = $(round(single_cstr_frk.conversion, digits=4)); $(n_stages_frk) equal CSTRs in series give $(round(train_res_frk.conversion, digits=4)); the PFR/batch limit is $(round(pfr_frk.conversion, digits=4)).
+"""
+
+# ╔═╡ 91358a8b-c845-4c13-9779-d9d01ac95cd6
+begin
+    ns_frk = 1:50
+    train_convs_frk = [cstr_train_free_radical(n, τ_total_frk / n, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk).conversion for n in ns_frk]
+    plot(ns_frk, train_convs_frk;
+        xlabel="number of equal CSTR stages", ylabel="conversion", label="CSTR train", lw=2,
+        legend=:bottomright, title="CSTR train → PFR as stage count grows")
+    hline!([pfr_frk.conversion]; label="PFR / batch limit", ls=:dash, color=:black)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
 **Roadmap** (not yet implemented in this version): Sanchez-Lacombe
 *mixture* thermodynamics (binary mixing rules and chemical potentials),
-reactor trains / recycle, and eventually a full flowsheet solver. See the
-repository README for details.
+recycle loops, and eventually a full flowsheet solver. See the repository
+README for details.
 """
 
 # ╔═╡ Cell order:
@@ -424,4 +462,9 @@ repository README for details.
 # ╟─56ba9de1-48e7-4252-9b7d-dc4a1e7900dd
 # ╠═da08bb91-9401-4b31-9952-ba1fccf997ff
 # ╠═4bd841d5-5e7d-48c8-994a-2f48bc049dc5
+# ╟─8139da23-ae9c-4052-8bd3-32ef4fa0391f
+# ╠═df12ac0e-1ac5-4ed5-80bc-78be20d8940c
+# ╠═fefabb16-4409-48a6-b6d6-10ae48e15e97
+# ╟─142995ab-27e7-45fe-9cd4-2e7a6bd60151
+# ╠═91358a8b-c845-4c13-9779-d9d01ac95cd6
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

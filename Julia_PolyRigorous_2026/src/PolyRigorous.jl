@@ -59,6 +59,9 @@ export cstr_free_radical, pfr_free_radical, cstr_step_growth_external_catalyst,
        cstr_step_growth_self_catalyzed, pfr_step_growth_external_catalyst,
        pfr_step_growth_self_catalyzed
 
+export cstr_train_free_radical, cstr_train_step_growth_external_catalyst,
+       cstr_train_step_growth_self_catalyzed
+
 export coordination_propagation_rate, transfer_rate_constant, Xn_coordination,
        monomer_concentration_coordination, conversion_coordination
 

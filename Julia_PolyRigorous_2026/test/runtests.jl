@@ -260,6 +260,48 @@ end
     @test res_self.p < pfr_self.p
 end
 
+@testset "reactors: CSTR trains converge to PFR as stage count grows" begin
+    # A single-stage "train" must reduce exactly to a plain CSTR.
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    I_in, M_in = 0.01, 5.0
+    τ_total = 3600.0
+
+    single = cstr_free_radical(τ_total, k_p, k_d, k_t, f, I_in, M_in)
+    train1 = cstr_train_free_radical(1, τ_total, k_p, k_d, k_t, f, I_in, M_in)
+    @test isapprox(train1.M, single.M; rtol=1e-12)
+
+    # The vector-of-τs form must agree with the (n, τ) convenience form
+    # when all stages are equal.
+    n = 5
+    train_vec = cstr_train_free_radical(fill(τ_total / n, n), k_p, k_d, k_t, f, I_in, M_in)
+    train_n = cstr_train_free_radical(n, τ_total / n, k_p, k_d, k_t, f, I_in, M_in)
+    @test isapprox(train_vec.M, train_n.M; rtol=1e-12)
+
+    # Classic reactor-engineering result: at fixed *total* residence time,
+    # a CSTR train's conversion increases monotonically with stage count
+    # and converges to the PFR value as n -> infinity.
+    pfr_res = pfr_free_radical(τ_total, k_p, k_d, k_t, f, I_in, M_in)
+    ns = [1, 2, 5, 20, 100, 2000]
+    convs = [cstr_train_free_radical(n, τ_total / n, k_p, k_d, k_t, f, I_in, M_in).conversion for n in ns]
+    @test issorted(convs)
+    @test all(convs .< pfr_res.conversion)
+    @test isapprox(convs[end], pfr_res.conversion; atol=1e-3)
+
+    # Same convergence property for step-growth, both kinetic orders.
+    k, c_in = 0.5, 1.0
+    pfr_ext = pfr_step_growth_external_catalyst(τ_total, k, c_in)
+    convs_ext = [cstr_train_step_growth_external_catalyst(n, τ_total / n, k, c_in).p for n in ns]
+    @test issorted(convs_ext)
+    @test all(convs_ext .< pfr_ext.p)
+    @test isapprox(convs_ext[end], pfr_ext.p; atol=1e-3)
+
+    pfr_self = pfr_step_growth_self_catalyzed(τ_total, k, c_in)
+    convs_self = [cstr_train_step_growth_self_catalyzed(n, τ_total / n, k, c_in).p for n in ns]
+    @test issorted(convs_self)
+    @test all(convs_self .< pfr_self.p)
+    @test isapprox(convs_self[end], pfr_self.p; atol=1e-3)
+end
+
 @testset "coordination polymerization kinetics" begin
     k_p, M, C_star = 50.0, 2.0, 1e-4
 

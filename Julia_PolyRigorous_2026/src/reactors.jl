@@ -1,6 +1,7 @@
 """
 Reactor unit operations built on top of `kinetics_free_radical.jl` and
-`kinetics_step_growth.jl`: ideal, isothermal, steady single CSTR and PFR.
+`kinetics_step_growth.jl`: ideal, isothermal, steady single CSTR and PFR,
+plus CSTRs-in-series ("reactor trains").
 
 Convention: `τ` is the reactor residence time (space time) `V/Q` — reactor
 volume over volumetric feed flow rate. Subscript `_in` marks a feed
@@ -15,7 +16,12 @@ vocabulary (`τ`) for symmetry with the CSTR functions — not new physics.
 
 A CSTR, by contrast, is a genuinely different (algebraic, not
 differential) problem: the whole vessel sits at one steady-state
-composition, fed continuously.
+composition, fed continuously. A train of CSTRs in series is just that
+algebraic step applied repeatedly, each stage's outlet feeding the next
+stage's inlet — and, in the limit of many equal-sized stages at fixed
+*total* residence time, a CSTR train's performance converges to the PFR's
+(a classic, textbook-standard reactor engineering result, checked
+directly in the test suite rather than assumed).
 """
 
 using Roots: find_zero, Bisection
@@ -131,3 +137,74 @@ at reaction time `t = τ`; a thin wrapper around
 [`extent_reaction_self_catalyzed`](@ref).
 """
 pfr_step_growth_self_catalyzed(τ, k, c_in) = (p=extent_reaction_self_catalyzed(k, c_in, τ),)
+
+# ----------------------------------------------------------------------------
+# Reactor trains: CSTRs in series
+# ----------------------------------------------------------------------------
+
+"""
+    cstr_train_free_radical(τs, k_p, k_d, k_t, f, I_in, M_in)
+    cstr_train_free_radical(n::Integer, τ, k_p, k_d, k_t, f, I_in, M_in)
+
+Outlet composition of `n` ideal CSTRs in series, each stage's outlet
+feeding the next stage's inlet, running free-radical polymerization. Pass
+a vector `τs` of per-stage residence times for unequal stages, or `n` and
+a single `τ` for `n` equal stages.
+
+Returns a named tuple `(I, M, conversion)` for the *last* stage's outlet
+(conversion computed against the overall feed `M_in`).
+"""
+function cstr_train_free_radical(τs, k_p, k_d, k_t, f, I_in, M_in)
+    I, M = I_in, M_in
+    for τ in τs
+        res = cstr_free_radical(τ, k_p, k_d, k_t, f, I, M)
+        I, M = res.I, res.M
+    end
+    return (I=I, M=M, conversion=1 - M / M_in)
+end
+cstr_train_free_radical(n::Integer, τ, k_p, k_d, k_t, f, I_in, M_in) =
+    cstr_train_free_radical(Iterators.repeated(τ, n), k_p, k_d, k_t, f, I_in, M_in)
+
+"""
+    cstr_train_step_growth_external_catalyst(τs, k, c_in)
+    cstr_train_step_growth_external_catalyst(n::Integer, τ, k, c_in)
+
+Outlet extent of reaction of `n` ideal CSTRs in series running
+externally-catalyzed step-growth polymerization. Pass a vector `τs` of
+per-stage residence times for unequal stages, or `n` and a single `τ` for
+`n` equal stages.
+
+Returns a named tuple `(c, p)` for the *last* stage's outlet (`p` computed
+against the overall feed `c_in`).
+"""
+function cstr_train_step_growth_external_catalyst(τs, k, c_in)
+    c = c_in
+    for τ in τs
+        c = cstr_step_growth_external_catalyst(τ, k, c).c
+    end
+    return (c=c, p=1 - c / c_in)
+end
+cstr_train_step_growth_external_catalyst(n::Integer, τ, k, c_in) =
+    cstr_train_step_growth_external_catalyst(Iterators.repeated(τ, n), k, c_in)
+
+"""
+    cstr_train_step_growth_self_catalyzed(τs, k, c_in)
+    cstr_train_step_growth_self_catalyzed(n::Integer, τ, k, c_in)
+
+Outlet extent of reaction of `n` ideal CSTRs in series running
+self-catalyzed step-growth polymerization. Pass a vector `τs` of per-stage
+residence times for unequal stages, or `n` and a single `τ` for `n` equal
+stages.
+
+Returns a named tuple `(c, p)` for the *last* stage's outlet (`p` computed
+against the overall feed `c_in`).
+"""
+function cstr_train_step_growth_self_catalyzed(τs, k, c_in)
+    c = c_in
+    for τ in τs
+        c = cstr_step_growth_self_catalyzed(τ, k, c).c
+    end
+    return (c=c, p=1 - c / c_in)
+end
+cstr_train_step_growth_self_catalyzed(n::Integer, τ, k, c_in) =
+    cstr_train_step_growth_self_catalyzed(Iterators.repeated(τ, n), k, c_in)
