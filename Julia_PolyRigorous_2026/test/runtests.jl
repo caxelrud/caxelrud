@@ -16,6 +16,18 @@ using PolyRigorous
     @test r_tol > 0
 
     @test_throws KeyError species("unobtainium")
+
+    # Polyethylene (both grades) and polypropylene must be present and
+    # give sensible, solvable Sanchez-Lacombe PVT behavior.
+    ldpe = species("polyethylene_ldpe")
+    hdpe = species("polyethylene")
+    pp = species("polypropylene")
+    for sp in (ldpe, hdpe, pp)
+        @test sp.kind == :polymer
+        @test segment_number(sp) > 0
+        ρ = density(298.15, 0.1, sp)
+        @test 0 < ρ < sp.rhostar
+    end
 end
 
 @testset "flory-huggins: limits and known values" begin
@@ -756,6 +768,60 @@ end
         resid = euler_residual(Tc, Pc, solv, w1c, poly, 1 - w1c, k12c, n1c, n2c)
         @test isapprox(resid, 0.0; atol=1e-6)
     end
+end
+
+@testset "reactors: staged initiator injection (LDPE autoclave/tubular)" begin
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    I0, M0 = 0.01, 5.0
+    τ = 3600.0
+
+    # A single stage with the whole charge injected up front must reduce
+    # exactly to the plain (non-staged) CSTR/PFR.
+    staged1_cstr = cstr_train_free_radical_staged([τ], k_p, k_d, k_t, f, [I0], M0)
+    plain_cstr = cstr_free_radical(τ, k_p, k_d, k_t, f, I0, M0)
+    @test isapprox(staged1_cstr.M, plain_cstr.M; rtol=1e-12)
+    @test isapprox(staged1_cstr.I, plain_cstr.I; rtol=1e-12)
+
+    staged1_pfr = pfr_train_free_radical_staged([τ], k_p, k_d, k_t, f, [I0], M0)
+    plain_pfr = pfr_free_radical(τ, k_p, k_d, k_t, f, I0, M0)
+    @test isapprox(staged1_pfr.M, plain_pfr.M; rtol=1e-12)
+
+    # Splitting a plain PFR into extra segments with zero additional
+    # injection must not change the result at all -- this isolates the
+    # staging/carry-over machinery from the injection feature itself.
+    n = 7
+    τs = fill(τ / n, n)
+    ΔI_zero_after_first = vcat([I0], zeros(n - 1))
+    staged_n = pfr_train_free_radical_staged(τs, k_p, k_d, k_t, f, ΔI_zero_after_first, M0)
+    @test isapprox(staged_n.M, plain_pfr.M; rtol=1e-8)
+    @test isapprox(staged_n.I, I0 * exp(-k_d * τ); rtol=1e-8)
+
+    # Injecting strictly more total initiator (an extra pulse on top of the
+    # same first-stage charge) must not decrease conversion, for both the
+    # autoclave (CSTR-train) and tubular (PFR-train) models.
+    n2 = 4
+    τs2 = fill(τ / n2, n2)
+    ΔI_baseline = vcat([I0], zeros(n2 - 1))
+    ΔI_extra = vcat([I0], [I0], zeros(n2 - 2))
+    @test cstr_train_free_radical_staged(τs2, k_p, k_d, k_t, f, ΔI_extra, M0).conversion >
+          cstr_train_free_radical_staged(τs2, k_p, k_d, k_t, f, ΔI_baseline, M0).conversion
+    @test pfr_train_free_radical_staged(τs2, k_p, k_d, k_t, f, ΔI_extra, M0).conversion >
+          pfr_train_free_radical_staged(τs2, k_p, k_d, k_t, f, ΔI_baseline, M0).conversion
+
+    @test_throws ArgumentError cstr_train_free_radical_staged([τ, τ], k_p, k_d, k_t, f, [I0], M0)
+    @test_throws ArgumentError pfr_train_free_radical_staged([τ, τ], k_p, k_d, k_t, f, [I0], M0)
+
+    # Ideal-gas concentration helper: [M] = P/(RT), a basic dimensional
+    # check against the gas constant directly (1 mol of ideal gas at its
+    # own characteristic P,T satisfies PV=RT, i.e. concentration 1/V=P/(RT)).
+    R_GAS = 8.314462618
+    T = 350.0
+    P = 2.0  # MPa
+    c = ideal_gas_concentration(P, T)
+    @test isapprox(c, P * 1e6 / (R_GAS * T) / 1000; rtol=1e-12)
+    @test c > 0
+    # Doubling pressure at fixed T must exactly double the concentration.
+    @test isapprox(ideal_gas_concentration(2P, T), 2c; rtol=1e-12)
 end
 
 end # @testset "PolyRigorous"

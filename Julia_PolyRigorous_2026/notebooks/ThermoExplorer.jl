@@ -601,6 +601,151 @@ begin
     hline!([0.0]; label="pure solvent reference (ln a₁ = 0)", ls=:dash, color=:black)
 end
 
+# ╔═╡ 7001799b-5fa9-4945-bce4-f7c4765aa12f
+md"""
+## 14. Industrial polyolefin processes: gas-phase, slurry-loop, solution
+
+Polyethylene and polypropylene (`species("polyethylene")`,
+`species("polyethylene_ldpe")`, `species("polypropylene")` — section 1)
+are made industrially by several reactor configurations that need no new
+kinetics beyond `kinetics_coordination.jl`, just the right reactor model
+and, for the gas-phase case, converting a monomer *partial pressure* to
+the concentration the kinetics expect (`ideal_gas_concentration`). All
+three below share the same illustrative propagation/deactivation rate
+constants and active-site concentration — only the residence time and
+(for the gas-phase case) the monomer supply differ, matching how these
+processes actually differ operationally. See the README's process-mapping
+table for typical temperature/pressure context (not modeled explicitly
+here — this package's coordination kinetics take `k_p`, `k_t` as given,
+without a built-in Arrhenius temperature dependence).
+"""
+
+# ╔═╡ 59c4baf0-506d-4403-b34d-55815951ad2e
+@bind P_gas_MPa Slider(0.5:0.1:3.0; default=1.5, show_value=true)
+
+# ╔═╡ c881a916-4d75-4208-826b-66530076aa50
+@bind τ_gas_min Slider(30:10:240; default=120, show_value=true)
+
+# ╔═╡ b4688087-532f-4526-a198-86de57e29143
+@bind τ_loop_min Slider(20:5:120; default=75, show_value=true)
+
+# ╔═╡ c3e743fb-7fff-4e34-856f-78c4207b1590
+@bind τ_soln_min Slider(0.5:0.5:15; default=3, show_value=true)
+
+# ╔═╡ 6d67a6e6-774e-44e3-a174-922e486d3db2
+begin
+    k_p_ind = 50.0      # L/(mol s), illustrative coordination propagation rate
+    k_t_ind = 5.0e-4    # 1/s, illustrative active-site deactivation rate
+    C0_star_ind = 1.0e-4  # mol/L, illustrative active-site concentration
+    T_gas_K = 363.15    # 90 °C, illustrative gas-phase temperature (fixed; see note above)
+
+    M_gas_ind = ideal_gas_concentration(P_gas_MPa, T_gas_K)
+    res_gas_ind = cstr_coordination(60τ_gas_min, k_p_ind, k_t_ind, C0_star_ind, M_gas_ind)
+
+    M_loop_ind = 3.0    # mol/L, illustrative liquid-phase (diluent) monomer concentration
+    res_loop_ind = cstr_coordination(60τ_loop_min, k_p_ind, k_t_ind, C0_star_ind, M_loop_ind)
+
+    M_soln_ind = 2.0    # mol/L, illustrative liquid-phase (solvent) monomer concentration
+    res_soln_ind = cstr_coordination(60τ_soln_min, k_p_ind, k_t_ind, C0_star_ind, M_soln_ind)
+end
+
+# ╔═╡ 23ef64fb-86c5-4a2d-a7bb-bc45d8680dc6
+md"""
+Gas-phase: [M] = $(round(M_gas_ind, digits=3)) mol/L from P = $(P_gas_MPa) MPa at $(round(T_gas_K - 273.15, digits=0)) °C, τ = $(τ_gas_min) min → conversion = $(round(res_gas_ind.conversion, digits=4))
+
+Slurry loop: [M] = $(M_loop_ind) mol/L, τ = $(τ_loop_min) min → conversion = $(round(res_loop_ind.conversion, digits=4))
+
+Solution: [M] = $(M_soln_ind) mol/L, τ = $(τ_soln_min) min → conversion = $(round(res_soln_ind.conversion, digits=4))
+"""
+
+# ╔═╡ 862b0b7c-9a2f-4536-bc92-5fc30224b44b
+bar(["gas-phase", "slurry loop", "solution"],
+    [res_gas_ind.conversion, res_loop_ind.conversion, res_soln_ind.conversion];
+    ylabel="conversion", legend=nothing,
+    title="Conversion by process type (illustrative, same catalyst)")
+
+# ╔═╡ 2b581d13-7845-462f-a41f-04e0f0d73a12
+md"""
+## 15. LDPE high-pressure autoclave & tubular reactors
+
+The two high-pressure (150-300 MPa) free-radical LDPE processes, both
+needing *staged* initiator injection to sustain the radical population
+along the reactor (`reactor_staged_injection.jl`): a multi-zone
+**autoclave** (each zone an ideal CSTR,
+[`cstr_train_free_radical_staged`](@ref)) and a **tubular** reactor with
+injection points along its length (each segment a PFR,
+[`pfr_train_free_radical_staged`](@ref)). `n` zones/segments share the
+same total residence time; `I_first` is charged to the first zone (as
+much as could safely be charged in a single dose — dumping the *whole*
+charge at once risks a runaway exotherm this package doesn't model), and
+an *additional* `I_extra_total` is split evenly across the remaining
+zones. Reuses illustrative rate constants of the same order of magnitude
+as section 5 (real high-pressure LDPE rate constants differ — see the
+note in section 14).
+
+Note: staging the *same* total initiator differently doesn't always
+increase conversion (which portion reacts fastest depends on the
+nonlinear radical-concentration/decay coupling) — but adding *more* total
+initiator, staged in on top of the first dose, never decreases it. That's
+the comparison below, and it's also the more industrially accurate one:
+staging is what lets a plant add more initiator overall than a single
+safe dose would allow, not a free way to redistribute a fixed charge.
+"""
+
+# ╔═╡ aecc0a1b-4a01-4786-ad66-3f6a0b09738f
+@bind n_zones_ldpe Slider(2:1:6; default=3, show_value=true)
+
+# ╔═╡ 3ee36363-12c5-4212-9249-652823641eaf
+@bind I_extra_total_ldpe Slider(0.0:0.002:0.02; default=0.01, show_value=true)
+
+# ╔═╡ 6a0eacdf-1e9a-4028-9f7d-a46700386cd5
+begin
+    k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe = 1.0e3, 1.0e-4, 1.0e7, 0.5
+    I_first_ldpe = 0.01    # mol/L, illustrative first-zone (safe single-dose) charge
+    M0_ldpe = 5.0          # mol/L, illustrative bulk-ish monomer concentration
+    τ_total_ldpe = 180.0   # s, illustrative total residence time (a few minutes)
+
+    τs_ldpe = fill(τ_total_ldpe / n_zones_ldpe, n_zones_ldpe)
+    ΔI_staged_ldpe = vcat(
+        [I_first_ldpe],
+        fill(I_extra_total_ldpe / (n_zones_ldpe - 1), n_zones_ldpe - 1),
+    )
+    ΔI_baseline_ldpe = vcat([I_first_ldpe], zeros(n_zones_ldpe - 1))
+
+    res_autoclave = cstr_train_free_radical_staged(τs_ldpe, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_staged_ldpe, M0_ldpe)
+    res_autoclave_baseline = cstr_train_free_radical_staged(τs_ldpe, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_baseline_ldpe, M0_ldpe)
+    res_tubular = pfr_train_free_radical_staged(τs_ldpe, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_staged_ldpe, M0_ldpe)
+    res_tubular_baseline = pfr_train_free_radical_staged(τs_ldpe, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_baseline_ldpe, M0_ldpe)
+end
+
+# ╔═╡ 7ab0c4f0-47a3-4afd-85ad-cd650ae217d0
+md"""
+With $(n_zones_ldpe) zones/segments, a first-zone charge of $(I_first_ldpe) mol/L, and $(I_extra_total_ldpe) mol/L more split evenly across the rest:
+
+Autoclave: conversion = $(round(res_autoclave.conversion, digits=4)) with staged re-injection vs. $(round(res_autoclave_baseline.conversion, digits=4)) with only the first-zone charge
+
+Tubular: conversion = $(round(res_tubular.conversion, digits=4)) with staged re-injection vs. $(round(res_tubular_baseline.conversion, digits=4)) with only the first-zone charge
+"""
+
+# ╔═╡ 37d2758c-8669-447e-8d28-15df9cff47be
+begin
+    ns_ldpe = 2:6
+    convs_staged_auto = Float64[]
+    convs_baseline_auto = Float64[]
+    for n in ns_ldpe
+        τs_n = fill(τ_total_ldpe / n, n)
+        ΔI_s = vcat([I_first_ldpe], fill(I_extra_total_ldpe / (n - 1), n - 1))
+        ΔI_b = vcat([I_first_ldpe], zeros(n - 1))
+        push!(convs_staged_auto, cstr_train_free_radical_staged(τs_n, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_s, M0_ldpe).conversion)
+        push!(convs_baseline_auto, cstr_train_free_radical_staged(τs_n, k_p_ldpe, k_d_ldpe, k_t_ldpe, f_ldpe, ΔI_b, M0_ldpe).conversion)
+    end
+    plot(ns_ldpe, convs_staged_auto;
+        xlabel="number of zones", ylabel="conversion", legend=:bottomright,
+        label="first-zone charge + staged re-injection", lw=2, marker=:circle,
+        title="Autoclave: staged re-injection vs. first-zone charge alone")
+    plot!(ns_ldpe, convs_baseline_auto; label="first-zone charge only", lw=2, ls=:dash, marker=:circle)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
@@ -684,4 +829,18 @@ made along the way.
 # ╠═1587dedf-6585-4f70-96a6-f619a4300feb
 # ╟─3fb2c1ea-02bb-4b80-bc58-3ccb3a57c1c3
 # ╠═6f858870-b45a-467f-a6ed-e21b3e88c5dc
+# ╟─7001799b-5fa9-4945-bce4-f7c4765aa12f
+# ╠═59c4baf0-506d-4403-b34d-55815951ad2e
+# ╠═c881a916-4d75-4208-826b-66530076aa50
+# ╠═b4688087-532f-4526-a198-86de57e29143
+# ╠═c3e743fb-7fff-4e34-856f-78c4207b1590
+# ╠═6d67a6e6-774e-44e3-a174-922e486d3db2
+# ╟─23ef64fb-86c5-4a2d-a7bb-bc45d8680dc6
+# ╠═862b0b7c-9a2f-4536-bc92-5fc30224b44b
+# ╟─2b581d13-7845-462f-a41f-04e0f0d73a12
+# ╠═aecc0a1b-4a01-4786-ad66-3f6a0b09738f
+# ╠═3ee36363-12c5-4212-9249-652823641eaf
+# ╠═6a0eacdf-1e9a-4028-9f7d-a46700386cd5
+# ╟─7ab0c4f0-47a3-4afd-85ad-cd650ae217d0
+# ╠═37d2758c-8669-447e-8d28-15df9cff47be
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

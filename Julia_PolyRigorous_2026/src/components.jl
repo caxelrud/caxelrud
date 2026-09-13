@@ -69,6 +69,18 @@ end
 # regression parameters for a specific resin grade or solvent lot. For real
 # engineering work, refit (Tstar, Pstar, rhostar) against PVT data for your
 # actual material before trusting the numbers.
+#
+# "polyethylene_ldpe" and "polypropylene" specifically use the pure-fluid
+# Sanchez-Lacombe parameters (Table 1) from von Konigslow, Thompson et al.,
+# *Soft Matter* 14, 4603 (2018) — regressed from real PVT data (LDPE: Hasan
+# et al.; linear PP: same experimental program) rather than a generic
+# compilation figure, since that paper's PDF was already read directly
+# (rendered to images, not text-extracted, to avoid garbling the parameter
+# table) while researching the mixture chemical-potential work above.
+# `Vm` (an actual, not close-packed, reference density) and `δ` are typical
+# commodity-polyolefin literature values, not from that paper (which doesn't
+# report them) — polyolefins are chemically similar enough that these don't
+# vary much between grades.
 # ----------------------------------------------------------------------------
 
 const SPECIES_DB = Dict{String,Species}(
@@ -83,6 +95,14 @@ const SPECIES_DB = Dict{String,Species}(
     "polyethylene" => Species(
         name="Polyethylene (HDPE-like)", kind=:polymer, M=100_000.0, Vm=110_000.0,
         δ=16.9, Tstar=649.0, Pstar=425.0, rhostar=904.0,
+    ),
+    "polyethylene_ldpe" => Species(
+        name="Polyethylene (LDPE)", kind=:polymer, M=100_000.0, Vm=108_900.0,
+        δ=16.9, Tstar=586.6, Pstar=407.5, rhostar=927.1,
+    ),
+    "polypropylene" => Species(
+        name="Polypropylene (isotactic, linear)", kind=:polymer, M=100_000.0, Vm=110_500.0,
+        δ=16.8, Tstar=662.8, Pstar=316.2, rhostar=868.5,
     ),
     "toluene" => Species(
         name="Toluene", kind=:solvent, M=92.14, Vm=106.9,

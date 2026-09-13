@@ -11,7 +11,10 @@ about the data](#scope--honesty-about-the-data) below.
 This first version covers **thermodynamics and kinetics**:
 
 - A small built-in species database (`species`, `SPECIES_DB`) with a
-  handful of common polymers (polystyrene, PMMA, polyethylene) and
+  handful of common polymers — polystyrene, PMMA, polyethylene (both an
+  HDPE-like grade and, separately, LDPE with parameters regressed from
+  real PVT data in von Konigslow, Thompson et al., *Soft Matter* **14**,
+  4603 (2018)), and polypropylene (isotactic, linear, same source) — and
   solvents (toluene, benzene, cyclohexane, n-hexane).
 - **Flory-Huggins lattice theory**: solvent/polymer activities, osmotic
   pressure, the spinodal curve, and the critical point, for a binary
@@ -80,8 +83,47 @@ This first version covers **thermodynamics and kinetics**:
   *same* single-PFR-with-recycle topology this way and solving it with
   `solve_tear` reproduces every one of `reactor_recycle.jl`'s hand-derived
   closed forms to numerical precision (`src/flowsheet.jl`).
+- **Multi-zone reactors with staged initiator injection**: `n` zones/segments
+  in series, each with *additional* fresh initiator injected on top of
+  whatever survives (decays) from the previous stage — the standard model
+  for the two high-pressure (150-300 MPa) LDPE free-radical process
+  configurations, a multi-zone **autoclave**
+  (`cstr_train_free_radical_staged`, each zone an ideal CSTR) and a
+  **tubular** reactor with multiple injection points
+  (`pfr_train_free_radical_staged`, each segment a PFR). Reduces exactly
+  to a plain (non-staged) CSTR train/PFR when all the initiator is charged
+  in the first stage and nothing thereafter — checked in the test suite,
+  along with the property that splitting a plain PFR into extra
+  zero-injection segments changes nothing (isolating the staging
+  machinery from the injection feature). Also includes
+  `ideal_gas_concentration`, converting a monomer partial pressure to the
+  concentration this package's kinetics expect, for modeling gas-phase
+  reactors (`src/reactor_staged_injection.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
+
+## Industrial polyolefin processes → which model to use
+
+Polyethylene and polypropylene are made industrially by several distinct
+reactor/process configurations. None of them need new kinetics beyond
+what's already in `kinetics_free_radical.jl`/`kinetics_coordination.jl` —
+each maps onto an existing (or, for the two LDPE cases, newly added)
+reactor model:
+
+| Process | Kinetics | Model | Typical conditions (illustrative) |
+| --- | --- | --- | --- |
+| Gas-phase fluidized bed (e.g. UNIPOL-type PE/PP) | Coordination | `cstr_coordination` (well-mixed bed) — feed monomer via `ideal_gas_concentration(P, T)` | ~80-100 °C, monomer partial pressure ~1-2 MPa, τ ~1-4 h |
+| Slurry loop (e.g. Phillips-type HDPE) | Coordination | `cstr_coordination` (the standard well-mixed idealization for a high-recirculation loop) or, more rigorously, `pfr_coordination_recycle` at large `R` (shown to converge to the same CSTR result) | ~85-110 °C, ~3-4 MPa, τ ~1-1.5 h |
+| Solution (e.g. Dow-type PE/EP elastomers) | Coordination | `cstr_coordination`/`cstr_train_coordination` at high `T` | ~150-250 °C, ~4-15 MPa, τ ~1-5 min (high catalyst activity) |
+| High-pressure autoclave (LDPE) | Free-radical | `cstr_train_free_radical_staged` (multi-zone, staged initiator) | ~150-300 MPa, ~150-300 °C, τ per zone ~30-60 s |
+| High-pressure tubular (LDPE) | Free-radical | `pfr_train_free_radical_staged` (staged initiator injection points) | ~150-300 MPa, ~150-300 °C, τ ~1-3 min total |
+
+The conditions above are illustrative orders of magnitude for context,
+not regression targets — see [Scope & honesty about the
+data](#scope--honesty-about-the-data). Section 14 of the notebook works
+through gas-phase/slurry-loop/solution with the built-in polyethylene and
+polypropylene species; section 15 works through the LDPE autoclave and
+tubular models.
 
 ## Roadmap (not yet implemented)
 
@@ -105,7 +147,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 205 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 226 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -172,6 +214,7 @@ src/
   reactors.jl              # ideal CSTR, PFR, and CSTR-train unit operations
   reactor_recycle.jl        # PFR-with-recycle unit operations
   flowsheet.jl              # Stream/mix/split_stream + tear-stream solver
+  reactor_staged_injection.jl # LDPE autoclave/tubular (staged initiator)
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
 notebooks/

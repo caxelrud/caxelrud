@@ -34,7 +34,18 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   *arbitrary* topologies (multiple reactors, multiple or nested recycle
   loops, branch-and-remix networks), using the same tear-stream method
   standard process simulators use — see `flowsheet.jl`.
+- Multi-zone reactors with staged initiator injection — the high-pressure
+  autoclave and tubular LDPE process configurations — plus an ideal-gas
+  concentration helper for gas-phase process modeling — see
+  `reactor_staged_injection.jl`.
 
+Industrial polyolefin processes map onto the reactor models above as
+follows (see the README for a fuller table with example parameters):
+gas-phase (fluidized bed) and slurry-loop polyethylene/polypropylene →
+[`cstr_coordination`](@ref)/[`pfr_coordination_recycle`](@ref); solution
+polymerization → [`cstr_train_coordination`](@ref); high-pressure LDPE
+autoclave → [`cstr_train_free_radical_staged`](@ref); high-pressure LDPE
+tubular → [`pfr_train_free_radical_staged`](@ref).
 """
 module PolyRigorous
 
@@ -50,6 +61,7 @@ include("kinetics_coordination.jl")
 include("reactors.jl")
 include("reactor_recycle.jl")
 include("flowsheet.jl")
+include("reactor_staged_injection.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
 
@@ -91,5 +103,7 @@ export pfr_free_radical_recycle, pfr_coordination_recycle,
        pfr_step_growth_self_catalyzed_recycle
 
 export Stream, mix, split_stream, solve_tear
+
+export cstr_train_free_radical_staged, pfr_train_free_radical_staged, ideal_gas_concentration
 
 end # module PolyRigorous
