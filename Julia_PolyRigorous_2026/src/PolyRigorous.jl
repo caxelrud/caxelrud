@@ -19,12 +19,15 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   molecular weight distribution — see `kinetics_step_growth.jl`.
 - Coordination (Ziegler-Natta / metallocene) polymerization kinetics — see
   `kinetics_coordination.jl`.
-- Ideal CSTR and PFR reactor unit operations built on the free-radical and
-  step-growth kinetic schemes — see `reactors.jl`.
+- Ideal CSTR, PFR, and CSTR-train reactor unit operations for all three
+  kinetic schemes above — see `reactors.jl`.
+- A single PFR-with-recycle unit operation (one implicit recycle loop
+  around one reactor) for all three kinetic schemes — see
+  `reactor_recycle.jl`.
 
-Full flowsheet simulation (connecting multiple unit operations with
-streams and recycle) is still out of scope for this version. See the
-repository README for the roadmap.
+A general flowsheet solver (arbitrary networks of multiple unit
+operations, not just one reactor with one recycle loop) is still out of
+scope for this version. See the repository README for the roadmap.
 """
 module PolyRigorous
 
@@ -37,6 +40,7 @@ include("kinetics_free_radical.jl")
 include("kinetics_step_growth.jl")
 include("kinetics_coordination.jl")
 include("reactors.jl")
+include("reactor_recycle.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
 
@@ -68,5 +72,11 @@ export cstr_train_free_radical, cstr_train_step_growth_external_catalyst,
 
 export coordination_propagation_rate, transfer_rate_constant, Xn_coordination,
        monomer_concentration_coordination, conversion_coordination
+
+export cstr_coordination, pfr_coordination, cstr_train_coordination
+
+export pfr_free_radical_recycle, pfr_coordination_recycle,
+       pfr_step_growth_external_catalyst_recycle,
+       pfr_step_growth_self_catalyzed_recycle
 
 end # module PolyRigorous

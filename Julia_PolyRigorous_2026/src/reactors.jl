@@ -208,3 +208,68 @@ function cstr_train_step_growth_self_catalyzed(τs, k, c_in)
 end
 cstr_train_step_growth_self_catalyzed(n::Integer, τ, k, c_in) =
     cstr_train_step_growth_self_catalyzed(Iterators.repeated(τ, n), k, c_in)
+
+# ----------------------------------------------------------------------------
+# Coordination polymerization
+# ----------------------------------------------------------------------------
+
+"""
+    cstr_coordination(τ, k_p, k_t, C0_star_in, M_in)
+
+Steady-state composition of an ideal, isothermal CSTR running coordination
+(Ziegler-Natta / metallocene) polymerization, from the steady-state species
+balances `(Cin - C)/τ = (consumption rate of C)`:
+
+- Active centers: `(C0*_in - C0*)/τ = k_t C0*`, giving
+  `C0* = C0*_in / (1 + k_t τ)` — exactly the same algebraic form as the
+  free-radical initiator balance, since both are simple first-order decays
+  of the chain-carrying species.
+- Monomer: `(M_in - M)/τ = k_p M C0*`, evaluated at the reactor's own
+  (outlet) active-center concentration `C0*` — linear in `M`, so
+  `M = M_in / (1 + τ k_p C0*)`, mirroring [`cstr_free_radical`](@ref).
+
+Returns a named tuple `(C_star, M, conversion)`.
+"""
+function cstr_coordination(τ, k_p, k_t, C0_star_in, M_in)
+    C_star = C0_star_in / (1 + k_t * τ)
+    M = M_in / (1 + τ * k_p * C_star)
+    return (C_star=C_star, M=M, conversion=1 - M / M_in)
+end
+
+"""
+    pfr_coordination(τ, k_p, C0_star, k_t, M0)
+
+Outlet composition of an ideal PFR with residence time `τ`, running
+coordination polymerization — identical to a batch reactor at reaction time
+`t = τ` (see module docs); a thin wrapper around
+[`monomer_concentration_coordination`](@ref).
+
+Returns a named tuple `(M, conversion)`.
+"""
+function pfr_coordination(τ, k_p, C0_star, k_t, M0)
+    M = monomer_concentration_coordination(τ, k_p, C0_star, k_t, M0)
+    return (M=M, conversion=1 - M / M0)
+end
+
+"""
+    cstr_train_coordination(τs, k_p, k_t, C0_star_in, M_in)
+    cstr_train_coordination(n::Integer, τ, k_p, k_t, C0_star_in, M_in)
+
+Outlet composition of `n` ideal CSTRs in series, each stage's outlet
+feeding the next stage's inlet, running coordination polymerization. Pass a
+vector `τs` of per-stage residence times for unequal stages, or `n` and a
+single `τ` for `n` equal stages.
+
+Returns a named tuple `(C_star, M, conversion)` for the *last* stage's
+outlet (conversion computed against the overall feed `M_in`).
+"""
+function cstr_train_coordination(τs, k_p, k_t, C0_star_in, M_in)
+    C_star, M = C0_star_in, M_in
+    for τ in τs
+        res = cstr_coordination(τ, k_p, k_t, C_star, M)
+        C_star, M = res.C_star, res.M
+    end
+    return (C_star=C_star, M=M, conversion=1 - M / M_in)
+end
+cstr_train_coordination(n::Integer, τ, k_p, k_t, C0_star_in, M_in) =
+    cstr_train_coordination(Iterators.repeated(τ, n), k_p, k_t, C0_star_in, M_in)

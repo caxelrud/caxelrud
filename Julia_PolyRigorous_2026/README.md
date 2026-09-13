@@ -42,26 +42,37 @@ This first version covers **thermodynamics and kinetics**:
   chain-releasing events) rather than an uncertain closed-form formula,
   plus the classic industrial hydrogen-response lever for molecular
   weight control (`src/kinetics_coordination.jl`).
-- **Reactor unit operations** built on the free-radical and step-growth
-  kinetic schemes: ideal CSTR (steady-state mass balance), PFR
-  (kinetically equivalent to a batch reactor run for a time equal to its
-  residence time), and CSTRs-in-series reactor trains — verified against
-  the classic result that a train converges to PFR performance as the
-  stage count grows at fixed total residence time (`src/reactors.jl`).
+- **Reactor unit operations** built on all three kinetic schemes above:
+  ideal CSTR (steady-state mass balance), PFR (kinetically equivalent to a
+  batch reactor run for a time equal to its residence time), and
+  CSTRs-in-series reactor trains — verified against the classic result
+  that a train converges to PFR performance as the stage count grows at
+  fixed total residence time (`src/reactors.jl`).
+- **PFR with recycle**: a single ideal PFR whose outlet is split, with a
+  fraction recycled back and mixed into the fresh feed, for all three
+  kinetic schemes. The recycle stream's composition depends on the very
+  outlet it feeds, making this a genuinely implicit ("flowsheet-style")
+  problem rather than a single forward calculation — solved in closed
+  form for the free-radical and coordination cases and the step-growth
+  external-catalyst case, and by bracketed root-finding for the
+  step-growth self-catalyzed case. Reduces exactly to the plain PFR at
+  recycle ratio `R = 0`, and approaches the corresponding CSTR (same
+  nominal residence time) as `R → ∞` — the classic "PFR with infinite
+  recycle behaves like a CSTR" result, checked directly in the test suite
+  (`src/reactor_recycle.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
 ## Roadmap (not yet implemented)
 
-- Recycle loops (the current version covers CSTRs in series with no
-  back-mixing between stages, not general reactor networks), and
-  CSTR/PFR unit operations for coordination polymerization specifically
-  (currently only batch).
+- A general flowsheet solver connecting arbitrary networks of multiple
+  unit operations (the current version covers CSTRs in series with no
+  back-mixing between stages, and a single PFR with one recycle loop
+  around it, not arbitrary topology).
 - Sanchez-Lacombe *mixture* chemical potentials/activities (the current
   version covers mixture PVT/density via mixing rules, not chemical
   potentials — see [Scope & honesty about the
   data](#scope--honesty-about-the-data) for why).
-- A full flowsheet solver connecting multiple unit operations.
 
 ## Getting started
 
@@ -75,7 +86,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 126 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 160 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -138,7 +149,8 @@ src/
   kinetics_free_radical.jl # free-radical polymerization kinetics (QSSA)
   kinetics_step_growth.jl  # step-growth kinetics + Flory MWD
   kinetics_coordination.jl # coordination (Ziegler-Natta) kinetics
-  reactors.jl              # ideal CSTR and PFR unit operations
+  reactors.jl              # ideal CSTR, PFR, and CSTR-train unit operations
+  reactor_recycle.jl        # PFR-with-recycle unit operations
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
 notebooks/

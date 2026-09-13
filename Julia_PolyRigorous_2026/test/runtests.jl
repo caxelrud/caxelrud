@@ -413,4 +413,123 @@ end
     @test convs_deactivating[end] < convs_living[end]
 end
 
+@testset "reactors: coordination CSTR, PFR, and train" begin
+    k_p, k_t = 50.0, 1e-4
+    C_star_in, M_in = 1e-4, 5.0
+    τ = 100.0
+
+    # As τ -> 0, nothing has reacted yet.
+    res0 = cstr_coordination(1e-8, k_p, k_t, C_star_in, M_in)
+    @test isapprox(res0.C_star, C_star_in; rtol=1e-6)
+    @test isapprox(res0.M, M_in; rtol=1e-6)
+    @test isapprox(res0.conversion, 0.0; atol=1e-6)
+
+    res = cstr_coordination(τ, k_p, k_t, C_star_in, M_in)
+    @test 0 < res.conversion < 1
+
+    # Steady-state species balances: (Cin - C)/τ = consumption rate of C.
+    @test isapprox((C_star_in - res.C_star) / τ, k_t * res.C_star; rtol=1e-10)
+    @test isapprox((M_in - res.M) / τ, k_p * res.M * res.C_star; rtol=1e-10)
+
+    # PFR is the batch solution at t=τ; CSTR is less efficient than PFR at
+    # the same residence time (same ordering argument as free-radical).
+    pfr_res = pfr_coordination(τ, k_p, C_star_in, k_t, M_in)
+    @test isapprox(pfr_res.M, monomer_concentration_coordination(τ, k_p, C_star_in, k_t, M_in); rtol=1e-12)
+    @test res.conversion < pfr_res.conversion
+
+    # CSTR train: single stage reduces to a plain CSTR, and conversion
+    # converges to the PFR value as stage count grows at fixed total τ.
+    train1 = cstr_train_coordination(1, τ, k_p, k_t, C_star_in, M_in)
+    @test isapprox(train1.M, res.M; rtol=1e-12)
+
+    ns = [1, 2, 5, 20, 100, 2000]
+    convs = [cstr_train_coordination(n, τ / n, k_p, k_t, C_star_in, M_in).conversion for n in ns]
+    @test issorted(convs)
+    @test all(convs .< pfr_res.conversion)
+    @test isapprox(convs[end], pfr_res.conversion; atol=1e-3)
+end
+
+@testset "reactors: PFR with recycle" begin
+    # --- Free-radical ---
+    k_p, k_d, k_t, f = 1e3, 1e-5, 1e7, 0.5
+    I_fresh, M_fresh = 0.01, 5.0
+    τ = 3600.0
+
+    # R=0 must reduce exactly to the plain PFR.
+    rec0 = pfr_free_radical_recycle(τ, 0.0, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    plain = pfr_free_radical(τ, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    @test isapprox(rec0.M_out, plain.M, rtol=1e-10)
+    @test isapprox(rec0.I_in, I_fresh; rtol=1e-12)
+    @test isapprox(rec0.conversion, plain.conversion; rtol=1e-10)
+
+    # Mass-balance self-consistency: the reported inlet concentrations must
+    # satisfy the mixing equation, and the outlet must be the batch/PFR
+    # evolution of the inlet over τ_hold = τ/(1+R).
+    R = 2.5
+    rec = pfr_free_radical_recycle(τ, R, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    τ_hold = τ / (1 + R)
+    @test isapprox(rec.I_in, (I_fresh + R * rec.I_out) / (1 + R); rtol=1e-10)
+    @test isapprox(rec.M_in, (M_fresh + R * rec.M_out) / (1 + R); rtol=1e-10)
+    @test isapprox(rec.I_out, rec.I_in * exp(-k_d * τ_hold); rtol=1e-10)
+    @test isapprox(rec.M_out, monomer_concentration(τ_hold, k_p, k_d, k_t, f, rec.I_in, rec.M_in); rtol=1e-8)
+
+    # Large-R limit: a PFR with (near-)infinite recycle behaves like a CSTR
+    # of the same nominal τ (classic reactor-engineering result).
+    rec_bigR = pfr_free_radical_recycle(τ, 1e5, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    cstr_res = cstr_free_radical(τ, k_p, k_d, k_t, f, I_fresh, M_fresh)
+    @test isapprox(rec_bigR.conversion, cstr_res.conversion; rtol=1e-3)
+
+    # --- Coordination ---
+    k_p2, k_t2 = 50.0, 1e-4
+    C0_star_fresh, M_fresh2 = 1e-4, 5.0
+    τ2 = 100.0
+
+    rec0_coord = pfr_coordination_recycle(τ2, 0.0, k_p2, k_t2, C0_star_fresh, M_fresh2)
+    plain_coord = pfr_coordination(τ2, k_p2, C0_star_fresh, k_t2, M_fresh2)
+    @test isapprox(rec0_coord.M_out, plain_coord.M; rtol=1e-10)
+
+    rec_bigR_coord = pfr_coordination_recycle(τ2, 1e5, k_p2, k_t2, C0_star_fresh, M_fresh2)
+    cstr_res_coord = cstr_coordination(τ2, k_p2, k_t2, C0_star_fresh, M_fresh2)
+    @test isapprox(rec_bigR_coord.conversion, cstr_res_coord.conversion; rtol=1e-3)
+
+    # --- Step-growth, external catalyst ---
+    k, c_fresh = 0.5, 1.0
+    τ3 = 20.0
+
+    rec0_ext = pfr_step_growth_external_catalyst_recycle(τ3, 0.0, k, c_fresh)
+    plain_ext = pfr_step_growth_external_catalyst(τ3, k, c_fresh)
+    @test isapprox(rec0_ext.p, plain_ext.p; rtol=1e-10)
+
+    R2 = 3.0
+    rec_ext = pfr_step_growth_external_catalyst_recycle(τ3, R2, k, c_fresh)
+    τ3_hold = τ3 / (1 + R2)
+    @test isapprox(rec_ext.c_in, (c_fresh + R2 * rec_ext.c_out) / (1 + R2); rtol=1e-10)
+    p_ext_hold = extent_reaction_external_catalyst(k, rec_ext.c_in, τ3_hold)
+    @test isapprox(rec_ext.c_out, rec_ext.c_in * (1 - p_ext_hold); rtol=1e-8)
+
+    rec_bigR_ext = pfr_step_growth_external_catalyst_recycle(τ3, 1e5, k, c_fresh)
+    cstr_res_ext = cstr_step_growth_external_catalyst(τ3, k, c_fresh)
+    @test isapprox(rec_bigR_ext.p, cstr_res_ext.p; rtol=1e-3)
+
+    # --- Step-growth, self-catalyzed ---
+    rec0_self = pfr_step_growth_self_catalyzed_recycle(τ3, 0.0, k, c_fresh)
+    plain_self = pfr_step_growth_self_catalyzed(τ3, k, c_fresh)
+    @test isapprox(rec0_self.p, plain_self.p; rtol=1e-8)
+
+    rec_self = pfr_step_growth_self_catalyzed_recycle(τ3, R2, k, c_fresh)
+    @test isapprox(rec_self.c_in, (c_fresh + R2 * rec_self.c_out) / (1 + R2); rtol=1e-8)
+    p_self_hold = extent_reaction_self_catalyzed(k, rec_self.c_in, τ3_hold)
+    @test isapprox(rec_self.c_out, rec_self.c_in * (1 - p_self_hold); rtol=1e-8)
+
+    rec_bigR_self = pfr_step_growth_self_catalyzed_recycle(τ3, 1e5, k, c_fresh)
+    cstr_res_self = cstr_step_growth_self_catalyzed(τ3, k, c_fresh)
+    @test isapprox(rec_bigR_self.p, cstr_res_self.p; rtol=1e-3)
+
+    # No reaction (k=0): every recycle case must report zero conversion.
+    @test pfr_free_radical_recycle(τ, R, 0.0, k_d, k_t, f, I_fresh, M_fresh).conversion == 0.0
+    @test isapprox(pfr_coordination_recycle(τ2, R, 0.0, k_t2, C0_star_fresh, M_fresh2).conversion, 0.0; atol=1e-12)
+    @test pfr_step_growth_external_catalyst_recycle(τ3, R2, 0.0, c_fresh).p == 0.0
+    @test pfr_step_growth_self_catalyzed_recycle(τ3, R2, 0.0, c_fresh).p == 0.0
+end
+
 end # @testset "PolyRigorous"

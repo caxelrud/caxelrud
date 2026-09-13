@@ -442,14 +442,72 @@ begin
         title="Sanchez-Lacombe mixture density vs. composition")
 end
 
+# ╔═╡ 73fbbb0f-2400-43e9-8e9e-4a9161a21414
+md"""
+## 11. PFR with recycle
+
+A single ideal PFR whose outlet stream is split, with a fraction
+`R = Q_recycle/Q_fresh` sent back and mixed into the fresh feed
+(`reactor_recycle.jl`) — the first step beyond a single pass toward
+genuine flowsheet topology, since the recycle stream's composition depends
+on the very reactor outlet it feeds, making this an implicit
+("flowsheet-style") problem. At `R = 0` this is exactly the plain PFR
+curve from sections 7/9 above; as `R → ∞` it approaches the CSTR at the
+*same* nominal τ — a classic reactor-engineering result (a PFR with
+infinite recycle behaves like a CSTR), checked directly in the test suite.
+Reuses the free-radical parameters and total residence time from sections
+5 and 9, the coordination parameters from section 8, and the step-growth
+external-catalyst parameters from section 6.
+"""
+
+# ╔═╡ 8822e6f6-0f04-420c-9387-70607c8e6cf4
+@bind R_recycle Slider([0.0, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 500.0, 1000.0, 10000.0]; default=1.0, show_value=true)
+
+# ╔═╡ 569b1802-d2fc-4092-a694-11b6703fc640
+begin
+    τ_recycle_coord = 100.0  # s, illustrative fixed residence time for the coordination case
+    τ_recycle_step = t_max_step
+
+    rec_frk = pfr_free_radical_recycle(τ_total_frk, R_recycle, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk)
+    rec_coord = pfr_coordination_recycle(τ_recycle_coord, R_recycle, k_p_coord, k_t_coord, C0_star_coord, M0_coord)
+    rec_step = pfr_step_growth_external_catalyst_recycle(τ_recycle_step, R_recycle, k_step, c0_step)
+
+    pfr_limit_coord = pfr_coordination(τ_recycle_coord, k_p_coord, C0_star_coord, k_t_coord, M0_coord)
+    cstr_limit_coord = cstr_coordination(τ_recycle_coord, k_p_coord, k_t_coord, C0_star_coord, M0_coord)
+    pfr_limit_step = pfr_step_growth_external_catalyst(τ_recycle_step, k_step, c0_step)
+    cstr_limit_step = cstr_step_growth_external_catalyst(τ_recycle_step, k_step, c0_step)
+end
+
+# ╔═╡ dd2436b1-9501-4982-9d6b-3f3649c45100
+md"""
+At R = $(R_recycle):
+
+- Free-radical (τ = $(round(τ_total_frk, sigdigits=3)) s): conversion = $(round(rec_frk.conversion, digits=4)) (PFR limit at R=0: $(round(pfr_frk.conversion, digits=4)); CSTR limit at R→∞: $(round(single_cstr_frk.conversion, digits=4)))
+- Coordination (τ = $(τ_recycle_coord) s): conversion = $(round(rec_coord.conversion, digits=4)) (PFR limit: $(round(pfr_limit_coord.conversion, digits=4)); CSTR limit: $(round(cstr_limit_coord.conversion, digits=4)))
+- Step-growth, external catalyst (τ = $(τ_recycle_step)): p = $(round(rec_step.p, digits=4)) (PFR limit: $(round(pfr_limit_step.p, digits=4)); CSTR limit: $(round(cstr_limit_step.p, digits=4)))
+"""
+
+# ╔═╡ 66ee83fc-148a-4a85-91a0-fbba76f70197
+begin
+    Rs_plot = exp10.(range(-2, 3; length=100))
+    convs_recycle_frk = [pfr_free_radical_recycle(τ_total_frk, R, k_p_frk, k_d_frk, k_t_frk, f_frk, I0_frk, M0_frk).conversion for R in Rs_plot]
+    plot(Rs_plot, convs_recycle_frk;
+        xscale=:log10, xlabel="recycle ratio R", ylabel="conversion", legend=:right,
+        label="PFR with recycle", lw=2, title="Free-radical: PFR-with-recycle conversion vs. R")
+    hline!([pfr_frk.conversion]; label="PFR (R=0) limit", ls=:dash, color=:black)
+    hline!([single_cstr_frk.conversion]; label="CSTR (R→∞) limit", ls=:dot, color=:red)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
 **Roadmap** (not yet implemented in this version): Sanchez-Lacombe
 *mixture* chemical potentials/activities (density/PVT is covered above —
 see the module docstring for why chemical potentials specifically are
-deliberately left out), recycle loops, and eventually a full flowsheet
-solver. See the repository README for details.
+deliberately left out), and a general flowsheet solver connecting
+arbitrary networks of unit operations (this version covers one reactor
+with one recycle loop around it, not arbitrary topology). See the
+repository README for details.
 """
 
 # ╔═╡ Cell order:
@@ -510,4 +568,9 @@ solver. See the repository README for details.
 # ╠═3977b7bf-5ee5-49b0-a831-9a9332e7e73d
 # ╟─9497e799-3098-446c-892e-b485ac224e9a
 # ╠═6712044c-4a44-4e58-b3a9-d00604247b2f
+# ╟─73fbbb0f-2400-43e9-8e9e-4a9161a21414
+# ╠═8822e6f6-0f04-420c-9387-70607c8e6cf4
+# ╠═569b1802-d2fc-4092-a694-11b6703fc640
+# ╟─dd2436b1-9501-4982-9d6b-3f3649c45100
+# ╠═66ee83fc-148a-4a85-91a0-fbba76f70197
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20
