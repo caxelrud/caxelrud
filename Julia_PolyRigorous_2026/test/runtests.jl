@@ -676,4 +676,86 @@ end
     @test isapprox(combined.Q, s_feed.Q; atol=1e-12)  # constant-density mass balance
 end
 
+@testset "sanchez-lacombe: constant-hole-volume mixture chemical potentials/activities" begin
+    poly = species("polystyrene")
+    solv = species("toluene")
+    T, P = 298.15, 0.1
+
+    # Pure-component limits: every quantity feeding the chemical potential
+    # (Tstar, Pstar, r, v0, x, y) reduces exactly to the pure-component value
+    # at w1=1/w1=0 by construction, so ln(a) of the *present* component must
+    # be exactly 0 there (the absent component's ln(a) diverges to -Inf,
+    # mirroring log(phi2) -> -Inf in ln_activity_polymer as phi2 -> 0).
+    r1 = sl_mixture_ln_activities(T, P, solv, 1.0, poly, 0.0)
+    @test isapprox(r1.ln_a1, 0.0; atol=1e-9)
+    @test r1.ln_a2 == -Inf
+
+    r0 = sl_mixture_ln_activities(T, P, solv, 0.0, poly, 1.0)
+    @test isapprox(r0.ln_a2, 0.0; atol=1e-9)
+    @test r0.ln_a1 == -Inf
+
+    # Intermediate compositions: finite/real ln_a1 (a2 legitimately
+    # underflows toward exp(-thousands) for a long polymer chain -- this is
+    # the same qualitative behavior as ln_activity_polymer's "per mole of
+    # chain" convention in flory_huggins.jl, not a bug).
+    for w1 in (0.05, 0.2, 0.5, 0.8, 0.95)
+        r = sl_mixture_ln_activities(T, P, solv, w1, poly, 1 - w1)
+        @test isfinite(r.ln_a1)
+        @test !isnan(r.ln_a2)
+        a = sl_mixture_activities(T, P, solv, w1, poly, 1 - w1)
+        @test a.a1 >= 0 && a.a2 >= 0
+    end
+
+    # k12 must have a real effect on the activities at fixed composition.
+    r_k0 = sl_mixture_ln_activities(T, P, solv, 0.5, poly, 0.5; k12=0.0)
+    r_k1 = sl_mixture_ln_activities(T, P, solv, 0.5, poly, 0.5; k12=0.02)
+    @test !isapprox(r_k0.ln_a1, r_k1.ln_a1; rtol=1e-6)
+
+    # The central thermodynamic-consistency check this module exists to
+    # satisfy (the source's own definition of "consistent"): the Euler
+    # relation Sigma_k n_k mu_k - PV = F must hold *exactly* (to floating
+    # point) whenever mu_k and P are genuinely partial derivatives of the
+    # same free energy F. Checked directly against the actual code (not
+    # just derived by hand) at several different states, using the same
+    # free-energy expression (Eq. 13 of von Konigslow, Park & Thompson,
+    # Phys. Rev. Applied 8, 044009 (2017)) the module's docstring derives
+    # mu_k from.
+    R_GAS = 8.314462618
+    function euler_residual(T, P, sp1, w1, sp2, w2, k12, n1, n2)
+        mix = PolyRigorous.sl_consistent_mixing_rules(sp1, w1, sp2, w2; k12=k12)
+        ρ̃_mix = PolyRigorous._sl_reduced_density_explicit_r(T, P, mix.Tstar, mix.Pstar, mix.r)
+
+        r1_, r2_ = segment_number(sp1), segment_number(sp2)
+        ν1, ν2 = PolyRigorous._sl_segment_volume(sp1), PolyRigorous._sl_segment_volume(sp2)
+        x1_charvol, x2_charvol = r1_ * ν1, r2_ * ν2
+        Vstar = n1 * x1_charvol + n2 * x2_charvol
+        V = Vstar / ρ̃_mix
+        n0 = (V - Vstar) / mix.v0
+
+        φ1 = n1 * x1_charvol / V
+        φ2 = n2 * x2_charvol / V
+
+        ε11_over_RT = sp1.Tstar / T
+        ε22_over_RT = sp2.Tstar / T
+        ε12_over_RT = sqrt(sp1.Tstar * sp2.Tstar) * (1 - k12) / T
+
+        F_over_RT = -(V / mix.v0) * (ε11_over_RT * φ1^2 + 2 * ε12_over_RT * φ1 * φ2 + ε22_over_RT * φ2^2) +
+                    (n0 * log(n0 * mix.v0 * ℯ / V) - n0) +
+                    (n1 * log(φ1) + n2 * log(φ2))
+
+        α1, α2 = r1_ * ν1 / mix.v0, r2_ * ν2 / mix.v0
+        μ1_over_RT = PolyRigorous._sl_chem_pot_over_RT(α1, φ1, 1 - ρ̃_mix, ε11_over_RT, ε12_over_RT, φ2)
+        μ2_over_RT = PolyRigorous._sl_chem_pot_over_RT(α2, φ2, 1 - ρ̃_mix, ε22_over_RT, ε12_over_RT, φ1)
+
+        P_over_RT = P * 1e6 / (R_GAS * T)
+        return (n1 * μ1_over_RT + n2 * μ2_over_RT - P_over_RT * V) - F_over_RT
+    end
+
+    for (Tc, Pc, w1c, k12c) in [(298.15, 0.1, 0.4, 0.0), (350.0, 5.0, 0.15, 0.02), (280.0, 20.0, 0.7, -0.01)]
+        n1c, n2c = 1000 * (w1c / solv.M), 1000 * ((1 - w1c) / poly.M)
+        resid = euler_residual(Tc, Pc, solv, w1c, poly, 1 - w1c, k12c, n1c, n2c)
+        @test isapprox(resid, 0.0; atol=1e-6)
+    end
+end
+
 end # @testset "PolyRigorous"

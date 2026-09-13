@@ -24,9 +24,15 @@ This first version covers **thermodynamics and kinetics**:
   isothermal compressibility (`src/sanchez_lacombe.jl`); plus binary
   **mixture** PVT behavior (mixture density) via van der Waals-type
   mixing rules for the characteristic parameters, reusing the same
-  pure-component EOS solver (`src/sanchez_lacombe_mixture.jl`). Mixture
-  *chemical potentials/activities* are deliberately not implemented —
-  see [Scope & honesty about the data](#scope--honesty-about-the-data).
+  pure-component EOS solver (`src/sanchez_lacombe_mixture.jl`); plus
+  binary **mixture chemical potentials/activities**
+  (`sl_mixture_activities`), restricted to a thermodynamically consistent
+  formulation (constant local hole volume, following von Konigslow, Park &
+  Thompson, *Phys. Rev. Applied* **8**, 044009 (2017)) with its own,
+  separate mixing rules verified against the Euler relation
+  (`src/sanchez_lacombe_activity.jl`) — see [Scope & honesty about the
+  data](#scope--honesty-about-the-data) for why this needed a different
+  mixing-rule convention from the PVT module above.
 - **Free-radical polymerization kinetics**: QSSA rate expressions,
   kinetic chain length, number-average degree of polymerization
   (combination / disproportionation / mixed termination), and isothermal
@@ -79,13 +85,13 @@ This first version covers **thermodynamics and kinetics**:
 
 ## Roadmap (not yet implemented)
 
-- Sanchez-Lacombe *mixture* chemical potentials/activities (the current
-  version covers mixture PVT/density via mixing rules, not chemical
-  potentials — see [Scope & honesty about the
-  data](#scope--honesty-about-the-data) for why). This is the one
-  remaining item — everything else originally on this roadmap (recycle
-  loops, coordination reactors, a general flowsheet solver) is now
-  implemented above.
+Nothing from the original roadmap remains: recycle loops, coordination
+reactors, a general flowsheet solver, and (most recently) Sanchez-Lacombe
+mixture chemical potentials/activities are all implemented above. Future
+directions would be new scope beyond what this package originally set out
+to cover (e.g. a general multi-component, N-ary flowsheet solver beyond
+today's binary-mixture and single/multi-reactor-with-recycle scope, or
+non-isothermal reactors) rather than unfinished items.
 
 ## Getting started
 
@@ -99,7 +105,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 182 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 205 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -159,6 +165,7 @@ src/
   phase_equilibrium.jl     # binodal curve via NLsolve
   sanchez_lacombe.jl       # Sanchez-Lacombe pure-component EOS
   sanchez_lacombe_mixture.jl # Sanchez-Lacombe binary mixture PVT
+  sanchez_lacombe_activity.jl # Sanchez-Lacombe mixture chemical potentials
   kinetics_free_radical.jl # free-radical polymerization kinetics (QSSA)
   kinetics_step_growth.jl  # step-growth kinetics + Flory MWD
   kinetics_coordination.jl # coordination (Ziegler-Natta) kinetics
@@ -193,13 +200,37 @@ reduce exactly to the pure-component parameters at the composition
 limits, and the mixture's segment number, reconstructed from the mixed
 parameters via the same formula used for pure components
 (`segment_number`), reproduces the mixing rule's own value exactly — both
-checked in the test suite. Deliberately *not* implemented: Sanchez-Lacombe
-mixture chemical potentials/activities. A literature search specifically
-for this turned up an explicit statement that published mixture
+checked in the test suite.
+
+Sanchez-Lacombe mixture chemical potentials/activities were deferred for
+two prior increments of this package specifically because a literature
+search turned up an explicit statement that published mixture
 chemical-potential expressions for the Sanchez-Lacombe EOS are not always
-thermodynamically consistent with each other; rather than pick one such
-formula on faith, this package sticks to the mixture PVT behavior above,
-which can be verified directly.
+thermodynamically consistent with each other. That statement traces to a
+specific, citable result — von Konigslow, Park & Thompson, *Phys. Rev.
+Applied* **8**, 044009 (2017) — which proves the inconsistency is
+unavoidable for *any* composition-dependent hole-volume mixing rule
+(including `sl_mixing_rules` above), but that chemical potentials *are*
+thermodynamically consistent if the hole volume is held constant with
+respect to composition when differentiating the free energy. This
+package implements exactly that restricted, consistent case
+(`sl_mixture_activities`, `src/sanchez_lacombe_activity.jl`), with its
+own self-contained mixing rules (the source's Eqs. (18), (23), (36)) —
+deliberately *not* reusing `sl_mixing_rules`, because an early attempt to
+reuse it looked plausible (it passed a pure-component-limit check, which
+almost any mixing rule satisfies) but failed a much stronger test: the
+Euler relation `Σₖ nₖ μₖ − PV = F`, which must hold exactly whenever `μₖ`
+and `P` are genuinely partial derivatives of the same free energy. The
+chemical potential itself was independently rederived from the source's
+free-energy expression by direct differentiation (matching the source's
+own published formula), and the final implementation was verified against
+that Euler relation numerically at several different states (not just
+derived by hand) — both checked in the test suite. The trade-off, stated
+plainly by the source and preserved here: this chemical potential does
+not correspond to the *same* hole-volume convention as `sl_mixing_rules`'s
+PVT predictions, so the two modules' outputs (density vs. activity) are
+independently self-consistent but not mutually cross-consistent with a
+single, unified equation of state.
 
 ## License
 

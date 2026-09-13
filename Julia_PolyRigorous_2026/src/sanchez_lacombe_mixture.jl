@@ -15,16 +15,23 @@ Appendix B, whose eq. B1 (Gibbs free energy) differentiates to exactly the
 EOS already implemented in `sanchez_lacombe.jl` — a useful confirmation
 that the underlying pure-fluid theory here is the standard one.
 
-Scope note — chemical potentials/activities for Sanchez-Lacombe mixtures
-are deliberately NOT implemented here. A literature search specifically
-for this turned up an explicit warning that published mixture
-chemical-potential expressions for the Sanchez-Lacombe EOS are not always
-thermodynamically consistent with each other (Ferreira et al., *Fluid
-Phase Equilib.* 2004 area of literature). Rather than pick one such
-formula on faith, this module sticks to what can be verified directly:
-mixture PVT behavior, which reduces to the correct pure-component limits
-by construction (checked in the test suite) and reuses the
-already-tested pure-component EOS solver rather than duplicating it.
+Scope note — chemical potentials/activities are deliberately NOT built on
+top of *this* module's mixing rules. A literature search turned up an
+explicit warning that published mixture chemical-potential expressions
+for the Sanchez-Lacombe EOS are not always thermodynamically consistent
+with each other (Ferreira et al., *Fluid Phase Equilib.* 2004 area of
+literature) — traced to a specific result (von Konigslow, Park &
+Thompson, *Phys. Rev. Applied* **8**, 044009 (2017)) showing this mixing
+rule in particular gives chemical potentials that are *not* consistent
+with its own equation of state. Rather than pick a formula on faith, this
+module sticks to what can be verified directly: mixture PVT behavior,
+which reduces to the correct pure-component limits by construction
+(checked in the test suite) and reuses the already-tested pure-component
+EOS solver rather than duplicating it. Mixture chemical potentials/
+activities *are* implemented, in `sanchez_lacombe_activity.jl`, using a
+different, self-consistent mixing-rule convention (verified against the
+Euler relation, not just derived by hand) — see that module's docs for
+why it cannot reuse the mixing rules here.
 """
 
 const _SL_MIX_R = 8.314462618  # J/(mol K)

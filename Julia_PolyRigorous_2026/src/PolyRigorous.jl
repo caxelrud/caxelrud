@@ -11,7 +11,11 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   Flory-Huggins — see `phase_equilibrium.jl`.
 - The Sanchez-Lacombe lattice-fluid equation of state for pure-component PVT
   behavior — see `sanchez_lacombe.jl` — plus binary *mixture* PVT behavior
-  via van der Waals-type mixing rules — see `sanchez_lacombe_mixture.jl`.
+  via van der Waals-type mixing rules — see `sanchez_lacombe_mixture.jl` —
+  plus mixture chemical potentials/activities, restricted to a
+  thermodynamically consistent (constant local hole volume) formulation
+  following von Konigslow, Park & Thompson (2017) — see
+  `sanchez_lacombe_activity.jl`.
 - Free-radical polymerization kinetics (QSSA rate expressions, molecular
   weight averages, isothermal batch conversion) — see
   `kinetics_free_radical.jl`.
@@ -31,8 +35,6 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   loops, branch-and-remix networks), using the same tear-stream method
   standard process simulators use — see `flowsheet.jl`.
 
-Sanchez-Lacombe *mixture* chemical potentials/activities remain out of
-scope — see the repository README for why.
 """
 module PolyRigorous
 
@@ -41,6 +43,7 @@ include("flory_huggins.jl")
 include("phase_equilibrium.jl")
 include("sanchez_lacombe.jl")
 include("sanchez_lacombe_mixture.jl")
+include("sanchez_lacombe_activity.jl")
 include("kinetics_free_radical.jl")
 include("kinetics_step_growth.jl")
 include("kinetics_coordination.jl")
@@ -60,6 +63,8 @@ export sl_eos_residual, reduced_density, density, specific_volume,
        thermal_expansion_coefficient, isothermal_compressibility
 
 export sl_mixing_rules, sl_mixture_species
+
+export sl_consistent_mixing_rules, sl_mixture_ln_activities, sl_mixture_activities
 
 export initiation_rate, radical_concentration, propagation_rate,
        kinetic_chain_length, Xn_combination, Xn_disproportionation,

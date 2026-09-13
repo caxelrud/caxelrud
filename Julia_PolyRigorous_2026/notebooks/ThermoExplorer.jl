@@ -413,9 +413,9 @@ Mixture density from the Sanchez-Lacombe mixing rules (`sl_mixing_rules`,
 `sl_mixture_species`, `sanchez_lacombe_mixture.jl`), applied to the same
 polymer/solvent pair and temperature chosen in section 1 and the pressure
 from section 4. `w₁` is the *weight fraction of solvent* in the mixture.
-Only PVT (density) behavior is covered here — Sanchez-Lacombe mixture
-chemical potentials/activities are deliberately not implemented (see the
-module docstring for why).
+Only PVT (density) behavior is covered here; mixture chemical
+potentials/activities use a *different* (thermodynamically consistent)
+mixing-rule convention — see section 13.
 """
 
 # ╔═╡ bba86433-0285-4076-8b58-58e6c870362d
@@ -555,15 +555,60 @@ begin
     hline!([conv2_fs]; label="long-τ branch alone", ls=:dot, color=:red)
 end
 
+# ╔═╡ fbf992c9-c533-4314-821e-840006f8a295
+md"""
+## 13. Sanchez-Lacombe mixture activities (consistent, constant-hole-volume)
+
+Section 10 covered mixture *density*; this section covers mixture
+*chemical potentials*, via `sl_mixture_activities` (`sanchez_lacombe_activity.jl`),
+following von Konigslow, Park & Thompson (2017): the Sanchez-Lacombe
+mixture free energy gives thermodynamically consistent chemical
+potentials only when the hole volume is held constant with respect to
+composition under the derivative — implemented here with its own,
+separately verified mixing rules (**not** `sl_mixing_rules` from section
+10 — see the module docstring for why those can't be reused). Each
+component's activity is reported relative to its own pure fluid at the
+same T, P, reusing the same polymer/solvent pair, temperature, and
+pressure as sections 1 and 4.
+"""
+
+# ╔═╡ 470b50f4-15aa-4118-a112-6de7ea134eea
+@bind w1_act Slider(0.02:0.02:0.98; default=0.5, show_value=true)
+
+# ╔═╡ 1587dedf-6585-4f70-96a6-f619a4300feb
+begin
+    ln_a_act = sl_mixture_ln_activities(T, P_MPa, solv, w1_act, poly, 1 - w1_act)
+    a_act = sl_mixture_activities(T, P_MPa, solv, w1_act, poly, 1 - w1_act)
+end
+
+# ╔═╡ 3fb2c1ea-02bb-4b80-bc58-3ccb3a57c1c3
+md"""
+$(round(100w1_act, digits=0))% $(solv.name) / $(round(100 * (1 - w1_act), digits=0))% $(poly.name) by mass, at $(T_C) °C, P = $(P_MPa) MPa:
+
+Solvent ($(solv.name)) activity: ln(a₁) = $(round(ln_a_act.ln_a1, digits=4)), a₁ = $(round(a_act.a1, digits=4))
+
+Polymer ($(poly.name)) activity: ln(a₂) = $(round(ln_a_act.ln_a2, sigdigits=4)) (per mole of chain — astronomically small for a long polymer chain, same "per mole of chain" convention as `ln_activity_polymer` in the Flory-Huggins section)
+"""
+
+# ╔═╡ 6f858870-b45a-467f-a6ed-e21b3e88c5dc
+begin
+    w1s_act = range(0.03, 0.97; length=100)
+    ln_a1s_act = [sl_mixture_ln_activities(T, P_MPa, solv, w, poly, 1 - w).ln_a1 for w in w1s_act]
+    plot(w1s_act, ln_a1s_act;
+        xlabel="w₁ (solvent weight fraction)", ylabel="ln(a₁) (solvent)",
+        label=nothing, lw=2,
+        title="Sanchez-Lacombe solvent activity vs. composition")
+    hline!([0.0]; label="pure solvent reference (ln a₁ = 0)", ls=:dash, color=:black)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
-**Roadmap** (not yet implemented in this version): Sanchez-Lacombe
-*mixture* chemical potentials/activities (density/PVT is covered above —
-see the module docstring for why chemical potentials specifically are
-deliberately left out). This is the one remaining item — recycle loops,
-coordination reactors, and a general flowsheet solver (sections 8, 11,
-and 12 above) are now implemented. See the repository README for details.
+Everything originally on this package's roadmap (recycle loops,
+coordination reactors, a general flowsheet solver, and Sanchez-Lacombe
+mixture chemical potentials/activities) is now implemented above. See the
+repository README for details, including the trade-offs each of these
+made along the way.
 """
 
 # ╔═╡ Cell order:
@@ -634,4 +679,9 @@ and 12 above) are now implemented. See the repository README for details.
 # ╠═7fd882bb-d68f-47b5-8f41-8da40a0b59be
 # ╟─29e2e8ac-9bbf-4ec5-abb2-6e3ca58d611e
 # ╠═58deff6b-a56e-4937-9451-149ec44b8324
+# ╟─fbf992c9-c533-4314-821e-840006f8a295
+# ╠═470b50f4-15aa-4118-a112-6de7ea134eea
+# ╠═1587dedf-6585-4f70-96a6-f619a4300feb
+# ╟─3fb2c1ea-02bb-4b80-bc58-3ccb3a57c1c3
+# ╠═6f858870-b45a-467f-a6ed-e21b3e88c5dc
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20
