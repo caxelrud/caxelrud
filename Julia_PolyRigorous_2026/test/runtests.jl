@@ -824,4 +824,107 @@ end
     @test isapprox(ideal_gas_concentration(2P, T), 2c; rtol=1e-12)
 end
 
+@testset "copolymerization: Mayo-Lewis instantaneous composition" begin
+    # Ideal/Bernoullian copolymerization (r1=r2=1): composition must match
+    # the feed exactly, at every feed composition.
+    for f1 in (0.1, 0.3, 0.5, 0.7, 0.9)
+        @test isapprox(instantaneous_copolymer_composition(1.0, 1.0, f1), f1; atol=1e-12)
+    end
+
+    # Pure-feed limits.
+    @test instantaneous_copolymer_composition(20.0, 0.1, 1.0) == 1.0
+    @test instantaneous_copolymer_composition(20.0, 0.1, 0.0) == 0.0
+
+    @test_throws ArgumentError instantaneous_copolymer_composition(20.0, 0.1, 1.5)
+    @test_throws ArgumentError instantaneous_copolymer_composition(20.0, 0.1, -0.1)
+
+    # Swapping which monomer is "1" and taking the complementary feed
+    # fraction must give the complementary composition (F1 + F2 = 1).
+    for f1 in (0.05, 0.2, 0.5, 0.8)
+        F1 = instantaneous_copolymer_composition(20.0, 0.1, f1)
+        F2 = instantaneous_copolymer_composition(0.1, 20.0, 1 - f1)
+        @test isapprox(F1 + F2, 1.0; atol=1e-12)
+    end
+
+    # A monomer with much higher reactivity (r1 >> 1, r2 << 1) must be
+    # strongly enriched in the copolymer relative to its feed fraction --
+    # the qualitative behavior behind why a modest ethylene feed fraction
+    # gives an ethylene-rich EPR rubber phase in an impact-PP gas-phase
+    # reactor (see the Spheripol notebook example).
+    f1_feed = 0.15
+    F1_rich = instantaneous_copolymer_composition(20.0, 0.1, f1_feed)
+    @test F1_rich > f1_feed
+    # Enrichment should increase further with a richer feed too.
+    @test instantaneous_copolymer_composition(20.0, 0.1, 0.30) > F1_rich
+
+    # Azeotrope: at r1=r2 (symmetric reactivity), the azeotrope is at
+    # f1=0.5 by symmetry; and by definition F1 at the azeotrope equals f1.
+    @test isapprox(azeotrope_composition(0.5, 0.5), 0.5; atol=1e-12)
+    for (r1, r2) in [(0.3, 0.6), (0.8, 0.2)]
+        f1_azeo = azeotrope_composition(r1, r2)
+        @test isapprox(instantaneous_copolymer_composition(r1, r2, f1_azeo), f1_azeo; atol=1e-8)
+    end
+    @test_throws ArgumentError azeotrope_composition(1.2, 0.8)  # r1+r2=2, no azeotrope
+end
+
+@testset "case study: Spheripol-style PP (loop reactors -> gas-phase impact copolymer)" begin
+    # Two liquid-propylene loop reactors in series (the homopolymer/random-
+    # copolymer matrix), modeled as coordination CSTRs sharing the same
+    # catalyst active sites (cstr_train_coordination already handles
+    # carrying the active-site concentration from stage to stage, since
+    # both loops are the same liquid-propylene process fluid).
+    k_p_loop, k_t_loop = 5.0, 1.0e-4
+    C0_star_loop, M_loop = 2.0e-4, 8.0  # mol/L; bulk liquid propylene is concentrated
+    τ_loop1, τ_loop2 = 3600.0, 3600.0   # ~1 h per loop, illustrative
+
+    loop_train = cstr_train_coordination([τ_loop1, τ_loop2], k_p_loop, k_t_loop, C0_star_loop, M_loop)
+    @test 0 < loop_train.conversion < 1
+    @test loop_train.C_star < C0_star_loop  # active sites have decayed, but survive to feed the gas phase
+
+    # A second loop must do additional conversion, not nothing.
+    loop1_only = cstr_coordination(τ_loop1, k_p_loop, k_t_loop, C0_star_loop, M_loop)
+    @test loop_train.conversion > loop1_only.conversion
+
+    # Gas-phase impact-copolymer reactor: continues on the SAME catalyst
+    # active sites carried over from the loop train's own C_star (the
+    # physically continuous quantity across this process step), but is a
+    # genuinely different reactor with its own fresh feed -- an
+    # ethylene/propylene *gas* mixture, at gas-phase concentrations via
+    # ideal_gas_concentration, not a continuation of the loops' liquid
+    # monomer concentration. (An earlier draft of this example chained
+    # cstr_train_coordination across all three stages, implicitly carrying
+    # the loops' liquid M into the gas phase -- caught as wrong by checking
+    # it numerically: the gas phase's actual monomer feed is at a
+    # different, gas-phase concentration scale entirely.)
+    T_gas, P_ethylene, P_propylene = 343.15, 0.3, 1.2  # K, MPa (illustrative)
+    M_ethylene_gas = ideal_gas_concentration(P_ethylene, T_gas)
+    M_propylene_gas = ideal_gas_concentration(P_propylene, T_gas)
+    M_gas_total = M_ethylene_gas + M_propylene_gas
+    τ_gas = 3600.0
+
+    gas_result = cstr_coordination(τ_gas, k_p_loop, k_t_loop, loop_train.C_star, M_gas_total)
+    @test 0 < gas_result.conversion < 1
+    @test gas_result.C_star < loop_train.C_star  # active sites continue decaying through the gas phase
+
+    # Ethylene reactivity ratio > propylene's (illustrative, typical order
+    # of magnitude for Ziegler-Natta EP copolymerization): the rubber phase
+    # is enriched in ethylene relative to the gas feed, the classic
+    # qualitative Spheripol impact-copolymer behavior -- a modest ethylene
+    # feed fraction gives a much more ethylene-rich rubber.
+    r_ethylene, r_propylene = 5.0, 0.2
+    f_ethylene_feed = M_ethylene_gas / M_gas_total
+    F_ethylene_rubber = instantaneous_copolymer_composition(r_ethylene, r_propylene, f_ethylene_feed)
+    @test F_ethylene_rubber > f_ethylene_feed
+    @test 0 < F_ethylene_rubber < 1
+
+    # Overall product rubber content: the mass fraction of total polymer
+    # made in the gas-phase step (a real Spheripol process specification,
+    # typically a modest minority of the total product for standard impact
+    # grades).
+    mass_loops = loop_train.conversion * M_loop
+    mass_gas = gas_result.conversion * M_gas_total
+    rubber_content = mass_gas / (mass_loops + mass_gas)
+    @test 0 < rubber_content < 1
+end
+
 end # @testset "PolyRigorous"

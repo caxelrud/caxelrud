@@ -746,6 +746,95 @@ begin
     plot!(ns_ldpe, convs_baseline_auto; label="first-zone charge only", lw=2, ls=:dash, marker=:circle)
 end
 
+# ╔═╡ 9523ba48-5bfd-4fca-b0ba-55fa001eaf43
+md"""
+## 16. Case study: Spheripol-style PP (loop reactors → gas-phase impact copolymer)
+
+A worked example combining several pieces above into one realistic
+industrial flowsheet: **two liquid-propylene loop reactors in series**
+(the homopolymer/random-copolymer matrix — coordination catalysis, both
+loops sharing the same catalyst active sites via
+[`cstr_train_coordination`](@ref), since it's the same liquid-propylene
+process fluid throughout), followed by **one or two gas-phase reactors**
+building an ethylene-propylene rubber (EPR) phase for an *impact*
+copolymer grade — the catalyst's active sites (`C_star`) carry over
+physically from the loops into the gas phase, but the gas phase is a
+genuinely different reactor with its own ethylene/propylene gas feed
+(via [`ideal_gas_concentration`](@ref)), **not** a continuation of the
+loops' liquid monomer concentration — an earlier draft of this example
+got that wrong by chaining `cstr_train_coordination` straight across the
+phase change, caught by checking the numbers rather than assumed.
+[`instantaneous_copolymer_composition`](@ref) (Mayo-Lewis) gives the
+resulting rubber phase's ethylene content from the gas feed composition
+and illustrative reactivity ratios — ethylene reacts much faster than
+propylene with Ziegler-Natta catalysts, so the rubber ends up markedly
+richer in ethylene than the gas feed, the qualitative behavior real
+impact-PP processes rely on.
+"""
+
+# ╔═╡ a18cd6c9-641e-4fe3-84bb-ca35c6e34a3b
+@bind τ_loop_min Slider(20:5:90; default=60, show_value=true)
+
+# ╔═╡ f28ace66-0755-488d-9cd8-62a94e1f2fcc
+@bind n_gas_stages Slider(1:1:2; default=1, show_value=true)
+
+# ╔═╡ 1867cf2d-163f-4593-ab41-de9ecddf66e1
+@bind P_ethylene_gas Slider(0.1:0.05:0.6; default=0.3, show_value=true)
+
+# ╔═╡ 62d2f338-3689-4257-a9aa-c4d601122988
+@bind P_propylene_gas Slider(0.5:0.1:2.0; default=1.2, show_value=true)
+
+# ╔═╡ 7e3ef314-a2fb-442a-8226-5891f3ae49c9
+begin
+    k_p_loop_ex, k_t_loop_ex = 5.0, 1.0e-4  # illustrative
+    C0_star_loop_ex, M_loop_ex = 2.0e-4, 8.0  # mol/L; bulk liquid propylene is concentrated
+    τ_loop_s_ex = 60τ_loop_min
+
+    loop_train_ex = cstr_train_coordination(2, τ_loop_s_ex, k_p_loop_ex, k_t_loop_ex, C0_star_loop_ex, M_loop_ex)
+
+    T_gas_ex = 343.15  # K, illustrative gas-phase temperature
+    M_ethylene_gas_ex = ideal_gas_concentration(P_ethylene_gas, T_gas_ex)
+    M_propylene_gas_ex = ideal_gas_concentration(P_propylene_gas, T_gas_ex)
+    M_gas_total_ex = M_ethylene_gas_ex + M_propylene_gas_ex
+    τ_gas_s_ex = 3600.0  # s, illustrative per gas-phase stage
+
+    gas_train_ex = cstr_train_coordination(n_gas_stages, τ_gas_s_ex, k_p_loop_ex, k_t_loop_ex, loop_train_ex.C_star, M_gas_total_ex)
+
+    r_ethylene_ex, r_propylene_ex = 5.0, 0.2  # illustrative Ziegler-Natta EP reactivity ratios
+    f_ethylene_feed_ex = M_ethylene_gas_ex / M_gas_total_ex
+    F_ethylene_rubber_ex = instantaneous_copolymer_composition(r_ethylene_ex, r_propylene_ex, f_ethylene_feed_ex)
+
+    mass_loops_ex = loop_train_ex.conversion * M_loop_ex
+    mass_gas_ex = gas_train_ex.conversion * M_gas_total_ex
+    rubber_content_ex = mass_gas_ex / (mass_loops_ex + mass_gas_ex)
+end
+
+# ╔═╡ 9d84e2a9-4451-4d6c-a5e2-364718e691c0
+md"""
+**Loops** (2 × $(τ_loop_min) min, propylene): conversion = $(round(loop_train_ex.conversion, digits=4)), active sites remaining = $(round(100loop_train_ex.C_star / C0_star_loop_ex, digits=1))% of the fresh charge
+
+**Gas phase** ($(n_gas_stages) stage(s), C₂⁼ partial pressure $(P_ethylene_gas) MPa, C₃⁼ $(P_propylene_gas) MPa): conversion = $(round(gas_train_ex.conversion, digits=4)), ethylene feed fraction = $(round(100f_ethylene_feed_ex, digits=1))%, ethylene content of the rubber phase = $(round(100F_ethylene_rubber_ex, digits=1))%
+
+**Overall product**: rubber (EPR) content = $(round(100rubber_content_ex, digits=1))% of total polymer produced
+"""
+
+# ╔═╡ 98eb5e16-a5bc-44ba-a9eb-49dd54575fe4
+begin
+    P_ethylenes_ex = range(0.05, 0.6; length=60)
+    F_ethylenes_ex = [
+        instantaneous_copolymer_composition(
+            r_ethylene_ex, r_propylene_ex,
+            ideal_gas_concentration(Pe, T_gas_ex) / (ideal_gas_concentration(Pe, T_gas_ex) + M_propylene_gas_ex),
+        ) for Pe in P_ethylenes_ex
+    ]
+    plot(P_ethylenes_ex, F_ethylenes_ex;
+        xlabel="ethylene partial pressure (MPa), propylene fixed at $(P_propylene_gas) MPa",
+        ylabel="ethylene mole fraction in rubber phase",
+        label=nothing, lw=2,
+        title="Gas-phase rubber (EPR) composition vs. ethylene feed")
+    plot!([0, 0.6], [0, 0.6]; label="rubber = feed (no enrichment)", ls=:dash, color=:black)
+end
+
 # ╔═╡ 6f74969a-7a26-435c-ac27-cdefc0037e20
 md"""
 ---
@@ -843,4 +932,12 @@ made along the way.
 # ╠═6a0eacdf-1e9a-4028-9f7d-a46700386cd5
 # ╟─7ab0c4f0-47a3-4afd-85ad-cd650ae217d0
 # ╠═37d2758c-8669-447e-8d28-15df9cff47be
+# ╟─9523ba48-5bfd-4fca-b0ba-55fa001eaf43
+# ╠═a18cd6c9-641e-4fe3-84bb-ca35c6e34a3b
+# ╠═f28ace66-0755-488d-9cd8-62a94e1f2fcc
+# ╠═1867cf2d-163f-4593-ab41-de9ecddf66e1
+# ╠═62d2f338-3689-4257-a9aa-c4d601122988
+# ╠═7e3ef314-a2fb-442a-8226-5891f3ae49c9
+# ╟─9d84e2a9-4451-4d6c-a5e2-364718e691c0
+# ╠═98eb5e16-a5bc-44ba-a9eb-49dd54575fe4
 # ╟─6f74969a-7a26-435c-ac27-cdefc0037e20

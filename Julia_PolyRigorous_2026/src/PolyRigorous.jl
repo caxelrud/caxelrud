@@ -38,14 +38,21 @@ of calculations underlying tools like Aspen Polymers Plus — covering:
   autoclave and tubular LDPE process configurations — plus an ideal-gas
   concentration helper for gas-phase process modeling — see
   `reactor_staged_injection.jl`.
+- Copolymer composition (the Mayo-Lewis equation) — the instantaneous
+  copolymer composition from comonomer feed composition and reactivity
+  ratios, needed for random- and impact-copolymer polyolefin grades — see
+  `kinetics_copolymerization.jl`.
 
 Industrial polyolefin processes map onto the reactor models above as
-follows (see the README for a fuller table with example parameters):
+follows (see the README for a fuller table with example parameters, and
+a worked Spheripol-style PP case study — loop reactors, then gas-phase
+reactors, for an impact copolymer grade):
 gas-phase (fluidized bed) and slurry-loop polyethylene/polypropylene →
-[`cstr_coordination`](@ref)/[`pfr_coordination_recycle`](@ref); solution
-polymerization → [`cstr_train_coordination`](@ref); high-pressure LDPE
-autoclave → [`cstr_train_free_radical_staged`](@ref); high-pressure LDPE
-tubular → [`pfr_train_free_radical_staged`](@ref).
+[`cstr_coordination`](@ref)/[`pfr_coordination_recycle`](@ref), with
+[`instantaneous_copolymer_composition`](@ref) for random/impact copolymer
+grades; solution polymerization → [`cstr_train_coordination`](@ref);
+high-pressure LDPE autoclave → [`cstr_train_free_radical_staged`](@ref);
+high-pressure LDPE tubular → [`pfr_train_free_radical_staged`](@ref).
 """
 module PolyRigorous
 
@@ -62,6 +69,7 @@ include("reactors.jl")
 include("reactor_recycle.jl")
 include("flowsheet.jl")
 include("reactor_staged_injection.jl")
+include("kinetics_copolymerization.jl")
 
 export Species, species, SPECIES_DB, degree_of_polymerization, segment_number
 
@@ -105,5 +113,7 @@ export pfr_free_radical_recycle, pfr_coordination_recycle,
 export Stream, mix, split_stream, solve_tear
 
 export cstr_train_free_radical_staged, pfr_train_free_radical_staged, ideal_gas_concentration
+
+export instantaneous_copolymer_composition, azeotrope_composition
 
 end # module PolyRigorous

@@ -99,6 +99,14 @@ This first version covers **thermodynamics and kinetics**:
   `ideal_gas_concentration`, converting a monomer partial pressure to the
   concentration this package's kinetics expect, for modeling gas-phase
   reactors (`src/reactor_staged_injection.jl`).
+- **Copolymer composition**: the Mayo-Lewis equation
+  (`instantaneous_copolymer_composition`), giving a copolymer's
+  instantaneous composition from the comonomer feed composition and the
+  two reactivity ratios — standard textbook material (Odian, *Principles
+  of Polymerization*), needed for random- and impact-copolymer polyolefin
+  grades (e.g. propylene/ethylene). Plus `azeotrope_composition`, the feed
+  composition at which copolymer composition doesn't drift with
+  conversion (`src/kinetics_copolymerization.jl`).
 - An interactive **Pluto notebook**, `notebooks/ThermoExplorer.jl`, that
   puts sliders and dropdowns on top of all of the above.
 
@@ -125,6 +133,42 @@ through gas-phase/slurry-loop/solution with the built-in polyethylene and
 polypropylene species; section 15 works through the LDPE autoclave and
 tubular models.
 
+### Case study: Spheripol-style PP (loop reactors → gas-phase impact copolymer)
+
+Section 16 of the notebook (and a `@testset` in `test/runtests.jl`) works
+through a realistic multi-reactor PP flowsheet in the style of the
+well-known Spheripol process: **two liquid-propylene loop reactors in
+series** producing the homopolymer/random-copolymer matrix
+(`cstr_train_coordination`, both loops sharing the same catalyst active
+sites since it's one continuous liquid-propylene process fluid), feeding
+into **one or two gas-phase reactors** that build an ethylene-propylene
+rubber (EPR) phase for an *impact* copolymer grade. The catalyst's active
+sites carry over physically from the loops into the gas phase (so the gas
+phase's `cstr_train_coordination` call starts from the loop train's own
+`C_star`) — but the gas phase is a genuinely different reactor with its
+own ethylene/propylene gas feed (`ideal_gas_concentration`), **not** a
+continuation of the loops' liquid monomer concentration.
+
+That distinction matters because of a real mistake caught while building
+this: an earlier draft chained `cstr_train_coordination` straight across
+all three stages, implicitly treating the gas phase as if it just
+continued diluting the loops' liquid propylene concentration. Comparing
+that against a manually-chained version with the gas phase's own,
+correctly-computed feed concentration showed the two disagreeing
+substantially — confirming the all-in-one-chain version was wrong, not
+just inelegant, since liquid-phase and gas-phase monomer concentrations
+aren't the same physical quantity. The fix: chain only the catalyst
+active-site concentration across the phase change, not the monomer
+concentration.
+
+`instantaneous_copolymer_composition` (Mayo-Lewis) then gives the rubber
+phase's ethylene content from the gas feed composition and illustrative
+Ziegler-Natta reactivity ratios (ethylene reacts much faster than
+propylene, so the rubber ends up markedly richer in ethylene than the gas
+feed — the qualitative behavior real impact-PP processes rely on), and
+the overall rubber content (mass fraction of total polymer made in the
+gas phase) is computed from both stages' conversions.
+
 ## Roadmap (not yet implemented)
 
 Nothing from the original roadmap remains: recycle loops, coordination
@@ -147,7 +191,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-This has been run end-to-end (Julia 1.13, all 226 tests passing) as part of building this package.
+This has been run end-to-end (Julia 1.13, all 253 tests passing) as part of building this package.
 
 ### Using the package directly
 
@@ -215,6 +259,7 @@ src/
   reactor_recycle.jl        # PFR-with-recycle unit operations
   flowsheet.jl              # Stream/mix/split_stream + tear-stream solver
   reactor_staged_injection.jl # LDPE autoclave/tubular (staged initiator)
+  kinetics_copolymerization.jl # Mayo-Lewis copolymer composition
 test/
   runtests.jl              # unit tests (known limits + EOS residual checks)
 notebooks/
