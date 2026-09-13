@@ -5,9 +5,13 @@ authors = ["caxelrud"]
 
 [deps]
 NLsolve = "2774e3e8-f4cf-5e23-947b-6d7e65073b56"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 
 [compat]
 NLsolve = "5.0.1"
+Plots = "1.41.7"
+PlutoUI = "0.7.83"
 Roots = "3.0.8"
 julia = "1.9"
