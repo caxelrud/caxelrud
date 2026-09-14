@@ -1,3 +1,4 @@
+<meta charset="UTF-8">
 <title>2026 Workbench</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -218,12 +219,25 @@
   }
   .search input:focus{border-color:var(--accent);}
   .search::before{
-    content:"⌕";
+    content:"";
     position:absolute;
-    left:10px; top:50%;
-    transform:translateY(-50%);
-    color:var(--text-muted);
-    font-size:.95rem;
+    left:11px; top:50%;
+    width:7px; height:7px;
+    margin-top:-6px;
+    border:1.4px solid var(--text-muted);
+    border-radius:50%;
+    pointer-events:none;
+  }
+  .search::after{
+    content:"";
+    position:absolute;
+    left:17px; top:50%;
+    width:6px; height:1.4px;
+    margin-top:1px;
+    background:var(--text-muted);
+    transform:rotate(45deg);
+    transform-origin:left center;
+    pointer-events:none;
   }
   .count-line{
     font-family:'IBM Plex Mono', monospace;
