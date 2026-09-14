@@ -361,16 +361,18 @@
     <div class="eyebrow">caxelrud &middot; repository catalog</div>
     <h1>The 2026<br><span>Workbench</span></h1>
     <p class="dek">
-      Eighteen repositories share the <strong><code>*_2026</code></strong> suffix — a personal
+      Twenty projects now share the <strong><code>*_2026</code></strong> suffix — a personal
       series of process-engineering and applied-ML notebooks, mostly written in
       <strong>Julia</strong> and shipped as reactive <strong>Pluto.jl</strong> notebooks, spanning
       distillation columns, grinding circuits, condition monitoring, and a few detours into
-      Bayesian networks and nonlinear control. This page catalogs what's actually inside each one.
+      Bayesian networks and nonlinear control. Nineteen are standalone repositories; one
+      (<strong>PolyRigorous</strong>) lives as a folder committed directly inside this very
+      <strong>caxelrud/caxelrud</strong> repo. This page catalogs what's actually inside each one.
     </p>
     <div class="stats">
-      <div class="stat"><div class="n">18</div><div class="l">Repositories</div></div>
+      <div class="stat"><div class="n">20</div><div class="l">Projects</div></div>
       <div class="stat"><div class="n">7</div><div class="l">Domains</div></div>
-      <div class="stat"><div class="n">14</div><div class="l">Pluto notebooks</div></div>
+      <div class="stat"><div class="n">15</div><div class="l">Pluto notebooks</div></div>
       <div class="stat"><div class="n">1</div><div class="l">Public repo</div></div>
     </div>
   </header>
@@ -386,10 +388,11 @@
   <main class="grid" id="grid"></main>
 
   <footer class="page">
-    Built from each repository's own README, fetched via the GitHub API on 2026&#8209;09&#8209;12.
-    Language dots and star/issue counts reflect GitHub's own repository metadata at that time.
-    Card accent colors are grouped by domain, not by GitHub topic — one repo, one primary domain,
-    chosen for this catalog.
+    Built from each project's own README, fetched via the GitHub API — first on 2026&#8209;09&#8209;12,
+    last updated 2026&#8209;09&#8209;14 to add PID and PolyRigorous. Language dots and star/issue
+    counts reflect GitHub's own repository metadata as of those dates. Card accent colors are
+    grouped by domain, not by GitHub topic — one project, one primary domain, chosen for this
+    catalog.
   </footer>
 </div>
 
@@ -426,6 +429,13 @@ const REPOS = [
     name:'MiningModel', slug:'ModelicaJulia_Mining_2026', cat:'process',
     tagline:"A porphyry copper concentrator: population-balance grinding, size-resolved flotation, and profit optimization — plus a dynamic Modelica twin with real hold-up.",
     stack:['Julia','JuMP · Ipopt','Modelica','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'PolyRigorous', slug:'Julia_PolyRigorous_2026', cat:'process',
+    tagline:"Rigorous polymer-solution thermodynamics from scratch — Flory-Huggins activities and phase equilibrium plus a Sanchez-Lacombe equation of state, wrapped in an interactive Pluto explorer.",
+    stack:['Julia','Flory-Huggins','Sanchez-Lacombe EOS','Pluto'], lang:'Julia', vis:'Public (in caxelrud/caxelrud)', stars:0, issues:0,
+    url:'https://github.com/caxelrud/caxelrud/tree/claude/hmi-dashboard-julia-pluto-ra97pr/Julia_PolyRigorous_2026',
+    repoLabel:'caxelrud/caxelrud/Julia_PolyRigorous_2026', status:'housed here'
   },
 
   {
@@ -486,6 +496,11 @@ const REPOS = [
     tagline:"Nonlinear MPC on a Wiener-model plant approximation — inverting the static output map collapses the whole problem to one QP, ~40x faster than a general NLP solve.",
     stack:['Python','CasADi','Julia','ModelPredictiveControl.jl'], lang:'HTML', vis:'Private', stars:0, issues:0
   },
+  {
+    name:'PID', slug:'Julia_PID_2026', cat:'control',
+    tagline:"A freshly created repository, reserved for PID-control work — no code pushed yet.",
+    stack:[], lang:null, vis:'Private', stars:0, issues:0, status:'early stage'
+  },
 
   {
     name:'HMI Dashboard', slug:'Julia_Dashboard_2026', cat:'connect',
@@ -533,24 +548,29 @@ function cardHTML(r){
   const c = catInfo(r.cat);
   const statusChip = r.status ? `<span class="status">${r.status}</span>` : '';
   const chips = r.stack.map(s => `<span class="chip">${s}</span>`).join('');
-  const langColor = LANG_COLOR[r.lang] || 'var(--text-muted)';
+  const langColor = r.lang ? (LANG_COLOR[r.lang] || 'var(--text-muted)') : null;
   const bits = [];
   if (r.stars) bits.push(`★ ${r.stars}`);
   if (r.issues) bits.push(`${r.issues} open issue${r.issues>1?'s':''}`);
   const extra = bits.length ? `<span>${bits.join(' · ')}</span>` : '';
+  const url = r.url || `https://github.com/caxelrud/${r.slug}`;
+  const label = r.repoLabel || `caxelrud/${r.slug}`;
+  const langHTML = r.lang
+    ? `<span class="lang"><span class="dot" style="background:${langColor}"></span>${r.lang}</span>`
+    : `<span class="lang">—</span>`;
   return `
     <article class="card" style="--cat:${c.color}">
       <div class="cat-label"><span>${c.label}</span>${statusChip}</div>
-      <h2><a href="https://github.com/caxelrud/${r.slug}" target="_blank" rel="noopener">${r.name}</a></h2>
-      <div class="repo-slug">caxelrud/${r.slug}</div>
+      <h2><a href="${url}" target="_blank" rel="noopener">${r.name}</a></h2>
+      <div class="repo-slug">${label}</div>
       <p>${r.tagline}</p>
       <div class="chips">${chips}</div>
       <footer>
-        <span class="lang"><span class="dot" style="background:${langColor}"></span>${r.lang}</span>
+        ${langHTML}
         <span class="meta-right">
           ${extra}
           <span class="vis">${r.vis}</span>
-          <a href="https://github.com/caxelrud/${r.slug}" target="_blank" rel="noopener">source ↗</a>
+          <a href="${url}" target="_blank" rel="noopener">source ↗</a>
         </span>
       </footer>
     </article>`;
