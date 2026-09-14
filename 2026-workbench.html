@@ -1,0 +1,610 @@
+<meta charset="UTF-8">
+<title>2026 Workbench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f4;
+    --surface:#ffffff;
+    --surface-2:#f4f6f8;
+    --border:#d7dde3;
+    --text:#161c22;
+    --text-muted:#5b6773;
+    --accent:#b9762e;
+    --accent-strong:#96601f;
+    --accent-ink:#ffffff;
+
+    --cat-process:#2f8f84;
+    --cat-monitor:#b9762e;
+    --cat-opt:#7a68c2;
+    --cat-ml:#3f7ab8;
+    --cat-control:#b85a3f;
+    --cat-connect:#4f8f4f;
+    --cat-vision:#5b6773;
+
+    --lang-julia:#a270ba;
+    --lang-python:#3572A5;
+    --lang-html:#c9502f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10151c;
+      --surface:#171e27;
+      --surface-2:#1b2330;
+      --border:#2a3441;
+      --text:#eef1f5;
+      --text-muted:#93a1b0;
+      --accent:#d99a4e;
+      --accent-strong:#e8b06a;
+      --accent-ink:#171208;
+
+      --cat-process:#4fb3a9;
+      --cat-monitor:#d99a4e;
+      --cat-opt:#9b8cd9;
+      --cat-ml:#6fa8dc;
+      --cat-control:#d97a5f;
+      --cat-connect:#7fbf7f;
+      --cat-vision:#8391a3;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10151c;
+    --surface:#171e27;
+    --surface-2:#1b2330;
+    --border:#2a3441;
+    --text:#eef1f5;
+    --text-muted:#93a1b0;
+    --accent:#d99a4e;
+    --accent-strong:#e8b06a;
+    --accent-ink:#171208;
+
+    --cat-process:#4fb3a9;
+    --cat-monitor:#d99a4e;
+    --cat-opt:#9b8cd9;
+    --cat-ml:#6fa8dc;
+    --cat-control:#d97a5f;
+    --cat-connect:#7fbf7f;
+    --cat-vision:#8391a3;
+  }
+
+  *{box-sizing:border-box;}
+  html{color-scheme:light dark;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+    padding:0 20px 64px;
+    position:relative;
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:36px 36px;
+    opacity:.22;
+  }
+  .wrap{max-width:1180px; margin:0 auto; position:relative; z-index:1;}
+
+  .mono{font-family:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;}
+
+  /* ---------- Header / hero ---------- */
+  header.hero{
+    padding:56px 0 36px;
+    border-bottom:1px solid var(--border);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.72rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:.6em;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px; height:7px;
+    background:var(--accent);
+    display:inline-block;
+    border-radius:1px;
+  }
+  h1{
+    font-family:'Big Shoulders Display', ui-sans-serif, sans-serif;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.01em;
+    font-size:clamp(2.6rem, 7vw, 4.6rem);
+    line-height:.94;
+    margin:.36em 0 .3em;
+    text-wrap:balance;
+  }
+  h1 span{color:var(--accent);}
+  .dek{
+    max-width:62ch;
+    font-size:1.08rem;
+    line-height:1.55;
+    color:var(--text-muted);
+    margin:0 0 30px;
+  }
+  .dek strong{color:var(--text); font-weight:500;}
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0,1fr));
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    max-width:640px;
+  }
+  .stat{
+    background:var(--surface);
+    padding:14px 16px;
+  }
+  .stat .n{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:700;
+    font-size:2rem;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+    color:var(--text);
+  }
+  .stat .l{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.66rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin-top:4px;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls{
+    padding:26px 0 22px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid var(--border);
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    z-index:5;
+  }
+  .pills{display:flex; flex-wrap:wrap; gap:8px;}
+  .pill{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.72rem;
+    letter-spacing:.02em;
+    padding:7px 12px 7px 10px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    border-radius:3px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:.55em;
+    transition:border-color .15s, color .15s;
+  }
+  .pill .sw{width:8px; height:8px; border-radius:1px; flex:none;}
+  .pill:hover{border-color:var(--accent);}
+  .pill[aria-pressed="true"]{
+    color:var(--text);
+    border-color:currentColor;
+    background:var(--surface-2);
+  }
+  .pill .ct{color:var(--text-muted); font-size:.9em;}
+
+  .search{
+    position:relative;
+    flex:0 0 auto;
+  }
+  .search input{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.8rem;
+    padding:9px 12px 9px 30px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    border-radius:3px;
+    width:220px;
+    outline:none;
+  }
+  .search input:focus{border-color:var(--accent);}
+  .search::before{
+    content:"";
+    position:absolute;
+    left:11px; top:50%;
+    width:7px; height:7px;
+    margin-top:-6px;
+    border:1.4px solid var(--text-muted);
+    border-radius:50%;
+    pointer-events:none;
+  }
+  .search::after{
+    content:"";
+    position:absolute;
+    left:17px; top:50%;
+    width:6px; height:1.4px;
+    margin-top:1px;
+    background:var(--text-muted);
+    transform:rotate(45deg);
+    transform-origin:left center;
+    pointer-events:none;
+  }
+  .count-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.7rem;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    padding:14px 0 4px;
+  }
+  .count-line b{color:var(--text); font-weight:600;}
+
+  /* ---------- Grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+    gap:14px;
+    padding:18px 0 40px;
+  }
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:3px;
+    padding:18px 18px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    border-top:3px solid var(--cat);
+  }
+  .card .cat-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.66rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--cat);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .card .cat-label .status{
+    border:1px dashed var(--text-muted);
+    color:var(--text-muted);
+    padding:1px 6px;
+    border-radius:2px;
+    font-size:.62rem;
+    letter-spacing:.04em;
+  }
+  .card h2{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:700;
+    font-size:1.32rem;
+    line-height:1.12;
+    margin:0;
+    text-wrap:balance;
+  }
+  .card h2 a{color:var(--text); text-decoration:none;}
+  .card h2 a:hover{color:var(--accent);}
+  .card .repo-slug{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.68rem;
+    color:var(--text-muted);
+    margin-top:-6px;
+  }
+  .card p{
+    font-size:.9rem;
+    line-height:1.5;
+    color:var(--text);
+    margin:0;
+    flex:1;
+  }
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.66rem;
+    padding:3px 7px;
+    border:1px solid var(--border);
+    background:var(--surface-2);
+    color:var(--text-muted);
+    border-radius:2px;
+  }
+  .card footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:4px;
+    padding-top:10px;
+    border-top:1px solid var(--border);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.7rem;
+    color:var(--text-muted);
+  }
+  .lang{display:flex; align-items:center; gap:6px;}
+  .lang .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+  .meta-right{display:flex; align-items:center; gap:10px;}
+  .vis{
+    padding:1px 6px;
+    border-radius:2px;
+    border:1px solid var(--border);
+  }
+  .card footer a{
+    color:var(--accent);
+    text-decoration:none;
+    font-weight:500;
+  }
+  .card footer a:hover{text-decoration:underline;}
+
+  .empty{
+    grid-column:1/-1;
+    padding:40px 0;
+    text-align:center;
+    color:var(--text-muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.8rem;
+  }
+
+  footer.page{
+    border-top:1px solid var(--border);
+    padding-top:22px;
+    color:var(--text-muted);
+    font-size:.82rem;
+    line-height:1.6;
+    max-width:62ch;
+  }
+  footer.page a{color:var(--accent);}
+
+  @media (max-width:560px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .controls{flex-direction:column; align-items:stretch;}
+    .search input{width:100%;}
+  }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">caxelrud &middot; repository catalog</div>
+    <h1>The 2026<br><span>Workbench</span></h1>
+    <p class="dek">
+      Twenty projects now share the <strong><code>*_2026</code></strong> suffix — a personal
+      series of process-engineering and applied-ML notebooks, mostly written in
+      <strong>Julia</strong> and shipped as reactive <strong>Pluto.jl</strong> notebooks, spanning
+      distillation columns, grinding circuits, condition monitoring, and a few detours into
+      Bayesian networks and nonlinear control. Nineteen are standalone repositories; one
+      (<strong>PolyRigorous</strong>) lives as a folder committed directly inside this very
+      <strong>caxelrud/caxelrud</strong> repo. This page catalogs what's actually inside each one.
+    </p>
+    <div class="stats">
+      <div class="stat"><div class="n">20</div><div class="l">Projects</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">Domains</div></div>
+      <div class="stat"><div class="n">15</div><div class="l">Pluto notebooks</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">Public repo</div></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="pills" id="pills"></div>
+    <div class="search">
+      <input id="search" type="text" placeholder="search name, tagline, stack…" autocomplete="off">
+    </div>
+  </div>
+  <div class="count-line" id="countline"></div>
+
+  <main class="grid" id="grid"></main>
+
+  <footer class="page">
+    Built from each project's own README, fetched via the GitHub API — first on 2026&#8209;09&#8209;12,
+    last updated 2026&#8209;09&#8209;14 to add PID and PolyRigorous. Language dots and star/issue
+    counts reflect GitHub's own repository metadata as of those dates. Card accent colors are
+    grouped by domain, not by GitHub topic — one project, one primary domain, chosen for this
+    catalog.
+  </footer>
+</div>
+
+<script>
+const CATS = [
+  {id:'process', label:'Process Design & Simulation', color:'var(--cat-process)'},
+  {id:'monitor', label:'Condition Monitoring', color:'var(--cat-monitor)'},
+  {id:'opt', label:'Optimization & Scheduling', color:'var(--cat-opt)'},
+  {id:'ml', label:'Machine Learning & AI', color:'var(--cat-ml)'},
+  {id:'control', label:'Control Systems', color:'var(--cat-control)'},
+  {id:'connect', label:'Connectivity & Dashboards', color:'var(--cat-connect)'},
+  {id:'vision', label:'Imaging & Vision', color:'var(--cat-vision)'},
+];
+
+const LANG_COLOR = {Julia:'var(--lang-julia)', Python:'var(--lang-python)', HTML:'var(--lang-html)'};
+
+const REPOS = [
+  {
+    name:'SCDistillation', slug:'Julia_SCDistillation_2026', cat:'process',
+    tagline:"Sub-millisecond FUG shortcut distillation, a rigorous tray-by-tray check, a GP surrogate trained against it, and a profit-optimal reflux/recovery search.",
+    stack:['Julia','JuMP · Optim.jl','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'ProcessDesigner.jl', slug:'Julia_Food-Bev_2026', cat:'process',
+    tagline:"A SuperPro-Designer-style bioprocess flowsheet simulator — 46 unit operations, batch Gantt scheduling, and capital/operating cost roll-ups.",
+    stack:['Julia','46 unit ops','Pluto','CI'], lang:'Julia', vis:'Public', stars:0, issues:0
+  },
+  {
+    name:'Soft-sensor', slug:'Julia_Soft-sensor_2026', cat:'process',
+    tagline:"Thermodynamically-grounded soft sensors — RVP proxies, tray composition — inferred from cheap continuous measurements via Clapeyron.jl equations of state.",
+    stack:['Julia','Clapeyron.jl','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'MiningModel', slug:'ModelicaJulia_Mining_2026', cat:'process',
+    tagline:"A porphyry copper concentrator: population-balance grinding, size-resolved flotation, and profit optimization — plus a dynamic Modelica twin with real hold-up.",
+    stack:['Julia','JuMP · Ipopt','Modelica','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'PolyRigorous', slug:'Julia_PolyRigorous_2026', cat:'process',
+    tagline:"Rigorous polymer-solution thermodynamics from scratch — Flory-Huggins activities and phase equilibrium plus a Sanchez-Lacombe equation of state, wrapped in an interactive Pluto explorer.",
+    stack:['Julia','Flory-Huggins','Sanchez-Lacombe EOS','Pluto'], lang:'Julia', vis:'Public (in caxelrud/caxelrud)', stars:0, issues:0,
+    url:'https://github.com/caxelrud/caxelrud/tree/claude/hmi-dashboard-julia-pluto-ra97pr/Julia_PolyRigorous_2026',
+    repoLabel:'caxelrud/caxelrud/Julia_PolyRigorous_2026', status:'housed here'
+  },
+
+  {
+    name:'IRThermalMonitor.jl', slug:'Julia_IR_2026', cat:'monitor',
+    tagline:"Radiometric FLIR JPEGs or color-mapped thermal screenshots become per-pixel temperature, hotspot detection, and a printable inspection report.",
+    stack:['Julia','exiftool','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'Mill Acoustic Monitoring', slug:'Julia_Sound_2026', cat:'monitor',
+    tagline:"Simulated SAG/ball-mill microphone and vibration signals used to infer charge fill level, toe/shoulder motion, liner wear, and shell-strike risk.",
+    stack:['Julia','signal sim','Pluto'], lang:'HTML', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'Condition Monitoring Suite', slug:'Julia_Vibration_2026', cat:'monitor',
+    tagline:"Eight notebooks across accelerometer, motor-current signature (MCSA), video, and temperature sensing — bearings, pumps, gearboxes, and fans.",
+    stack:['Julia','FFT / envelope','Pluto'], lang:'Julia', vis:'Private', stars:1, issues:0
+  },
+  {
+    name:'SPC Beginner Tool', slug:'Julia_SPC_2026', cat:'monitor',
+    tagline:"Statistical process control exercises — control charts and CUSUM-style monitoring — worked against a real cardiac-surgery outcomes dataset.",
+    stack:['Julia','control charts'], lang:'HTML', vis:'Private', stars:0, issues:0
+  },
+
+  {
+    name:'Polymer Scheduling', slug:'Julia_Scheduling_2026', cat:'opt',
+    tagline:"A month-long MILP schedule for dedicated PE/PP production trains — order consolidation, an asymmetric changeover matrix, and tardiness cost.",
+    stack:['Julia','JuMP · HiGHS','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'DynMIRTO', slug:'Julia_DynMIRTO_2026', cat:'opt',
+    tagline:"A three-layer optimizer echoing AspenTech's GDOT — single-period blend LP, multi-period tank scheduling, and a closed real-time nonlinear loop, now cross-wired.",
+    stack:['Julia','JuMP · HiGHS','Pluto','CI'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+
+  {
+    name:'BNN', slug:'Julia_BNN_2026', cat:'ml',
+    tagline:"Bayesian neural networks (Turing.jl NUTS, LaplaceRedux) predicting oil & gas reservoir permeability, with additive posterior updates as new wells drill in.",
+    stack:['Julia','Turing.jl','Flux','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'SymbolicRegression', slug:'Julia_SymbolicRegression_2026', cat:'ml',
+    tagline:"Searches for short, interpretable closed-form equations for polyolefin properties — PE melt index/density, PP MFR/xylene solubles — instead of a black box.",
+    stack:['Julia','SymbolicRegression.jl','MLJ.jl'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'HybridBNet', slug:'Julia_HybridBNet_2026', cat:'ml',
+    tagline:"Anomaly detection via a hybrid discrete + continuous Bayesian network — each sensor is scored against its own Markov-blanket predictive distribution.",
+    stack:['Python','Julia','Pluto'], lang:'Julia', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'SciML Research', slug:'Julia_SciML_research_2026', cat:'ml',
+    tagline:"Fourteen worked SciML notebooks — neural ODEs, UDEs, PINNs, SINDy, Bayesian inference — mirrored across general examples and an oil & gas production suite.",
+    stack:['Julia','SciML','Turing.jl','CI'], lang:'Julia', vis:'Private', stars:0, issues:1
+  },
+
+  {
+    name:'wiener-mpc', slug:'Julia_NL_Wiener_2026', cat:'control',
+    tagline:"Nonlinear MPC on a Wiener-model plant approximation — inverting the static output map collapses the whole problem to one QP, ~40x faster than a general NLP solve.",
+    stack:['Python','CasADi','Julia','ModelPredictiveControl.jl'], lang:'HTML', vis:'Private', stars:0, issues:0
+  },
+  {
+    name:'PID', slug:'Julia_PID_2026', cat:'control',
+    tagline:"A freshly created repository, reserved for PID-control work — no code pushed yet.",
+    stack:[], lang:null, vis:'Private', stars:0, issues:0, status:'early stage'
+  },
+
+  {
+    name:'HMI Dashboard', slug:'Julia_Dashboard_2026', cat:'connect',
+    tagline:"A reactive HMI/SCADA-style dashboard pulling live and historical tags from InfluxDB, MQTT, and native OPC UA — pure Julia, no Python runtime.",
+    stack:['Julia','InfluxDB','MQTT','OPC UA'], lang:'Julia', vis:'Private', stars:0, issues:1
+  },
+  {
+    name:'MCP ↔ OPC UA', slug:'Julia_MCPOPCUA_2026', cat:'connect',
+    tagline:"Early notes and a vendored OPC UA↔MCP bridge server, wiring a UAExpert test PLC program into an MCP tool interface for an LLM to read/write tags.",
+    stack:['Python','OPC UA','MCP'], lang:'Python', vis:'Private', stars:0, issues:0, status:'exploratory'
+  },
+
+  {
+    name:'Image', slug:'Julia_image_2026', cat:'vision',
+    tagline:"A fresh repository reserved for image-processing work — no code shipped yet beyond scaffolding.",
+    stack:['Julia'], lang:'Julia', vis:'Private', stars:0, issues:0, status:'early stage'
+  },
+];
+
+const grid = document.getElementById('grid');
+const pillsEl = document.getElementById('pills');
+const searchEl = document.getElementById('search');
+const countEl = document.getElementById('countline');
+let activeCat = 'all';
+
+function catInfo(id){ return CATS.find(c => c.id === id); }
+
+function renderPills(){
+  const counts = {};
+  REPOS.forEach(r => counts[r.cat] = (counts[r.cat]||0)+1);
+  const all = `<button class="pill" data-cat="all" aria-pressed="${activeCat==='all'}">
+      <span class="sw" style="background:var(--accent)"></span>All <span class="ct">(${REPOS.length})</span>
+    </button>`;
+  const rest = CATS.map(c => `
+    <button class="pill" data-cat="${c.id}" aria-pressed="${activeCat===c.id}" style="color:${activeCat===c.id ? c.color : ''}">
+      <span class="sw" style="background:${c.color}"></span>${c.label} <span class="ct">(${counts[c.id]||0})</span>
+    </button>`).join('');
+  pillsEl.innerHTML = all + rest;
+  pillsEl.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => { activeCat = btn.dataset.cat; renderPills(); renderGrid(); });
+  });
+}
+
+function cardHTML(r){
+  const c = catInfo(r.cat);
+  const statusChip = r.status ? `<span class="status">${r.status}</span>` : '';
+  const chips = r.stack.map(s => `<span class="chip">${s}</span>`).join('');
+  const langColor = r.lang ? (LANG_COLOR[r.lang] || 'var(--text-muted)') : null;
+  const bits = [];
+  if (r.stars) bits.push(`★ ${r.stars}`);
+  if (r.issues) bits.push(`${r.issues} open issue${r.issues>1?'s':''}`);
+  const extra = bits.length ? `<span>${bits.join(' · ')}</span>` : '';
+  const url = r.url || `https://github.com/caxelrud/${r.slug}`;
+  const label = r.repoLabel || `caxelrud/${r.slug}`;
+  const langHTML = r.lang
+    ? `<span class="lang"><span class="dot" style="background:${langColor}"></span>${r.lang}</span>`
+    : `<span class="lang">—</span>`;
+  return `
+    <article class="card" style="--cat:${c.color}">
+      <div class="cat-label"><span>${c.label}</span>${statusChip}</div>
+      <h2><a href="${url}" target="_blank" rel="noopener">${r.name}</a></h2>
+      <div class="repo-slug">${label}</div>
+      <p>${r.tagline}</p>
+      <div class="chips">${chips}</div>
+      <footer>
+        ${langHTML}
+        <span class="meta-right">
+          ${extra}
+          <span class="vis">${r.vis}</span>
+          <a href="${url}" target="_blank" rel="noopener">source ↗</a>
+        </span>
+      </footer>
+    </article>`;
+}
+
+function renderGrid(){
+  const q = searchEl.value.trim().toLowerCase();
+  const filtered = REPOS.filter(r => {
+    if (activeCat !== 'all' && r.cat !== activeCat) return false;
+    if (!q) return true;
+    const hay = (r.name + ' ' + r.tagline + ' ' + r.stack.join(' ') + ' ' + r.slug).toLowerCase();
+    return hay.includes(q);
+  });
+  grid.innerHTML = filtered.length
+    ? filtered.map(cardHTML).join('')
+    : `<div class="empty">No repository matches “${q}”.</div>`;
+  countEl.innerHTML = `showing <b>${filtered.length}</b> of <b>${REPOS.length}</b> repositories`;
+}
+
+searchEl.addEventListener('input', renderGrid);
+renderPills();
+renderGrid();
+</script>
